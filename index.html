@@ -47,11 +47,12 @@
   header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;flex-wrap:wrap;gap:14px;}
   .brand{display:flex;gap:14px;align-items:center;}
   .navicon{
-    width:38px;height:38px;border-radius:9px;background:var(--panel);border:1px solid var(--border);
+    width:40px;height:40px;border-radius:9px;background:var(--panel-2);border:1.5px solid var(--border);
     display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+    color:var(--accent);
   }
-  .navicon:hover{border-color:var(--accent);}
-  .navicon svg{width:17px;height:17px;}
+  .navicon:hover{border-color:var(--accent);background:var(--accent-dim);}
+  .navicon svg{width:19px;height:19px;stroke:var(--accent);display:block;}
   .brand-mark{height:42px;width:auto;display:block;object-fit:contain;}
   h1{font-family:'Space Grotesk',sans-serif;font-size:20px;margin:0;font-weight:600;letter-spacing:-0.01em;}
   .sub{color:var(--muted);font-size:12px;margin-top:2px;}
@@ -78,7 +79,7 @@
   .sync-time{color:var(--muted);font-weight:400;font-family:'JetBrains Mono',monospace;font-size:11px;}
 
   /* stat chips */
-  .chips{display:grid;grid-template-columns:repeat(9,1fr);gap:9px;margin-bottom:22px;}
+  .chips{display:grid;grid-template-columns:repeat(8,1fr);gap:9px;margin-bottom:22px;}
   .chip{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:11px 12px;}
   .chip .n{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;line-height:1;}
   .chip .l{font-size:10.5px;color:var(--muted);margin-top:5px;letter-spacing:.01em;}
@@ -105,9 +106,21 @@
     flex:0 0 240px;max-height:600px;
   }
   .kcol.dragover{background:var(--panel-3);border-color:var(--accent);}
-  .kcol-head{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 8px;border-bottom:1px solid var(--border);margin-bottom:2px;flex-shrink:0;}
+  .kcol-head{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 8px;border-bottom:1px solid var(--border);margin-bottom:2px;flex-shrink:0;gap:6px;}
   .kcol-head .name{font-size:12px;font-weight:700;letter-spacing:.02em;}
   .kcol-head .count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);background:var(--panel-2);padding:1px 7px;border-radius:999px;}
+  .collapse-btn{background:none;border:none;color:var(--faint);cursor:pointer;font-size:11px;padding:2px 4px;flex-shrink:0;}
+  .collapse-btn:hover{color:var(--text);}
+
+  .kcol.collapsed{flex:0 0 44px;padding:10px 6px;cursor:pointer;}
+  .kcol.collapsed .kcol-scroll{display:none;}
+  .kcol.collapsed .kcol-head{
+    flex-direction:column-reverse;align-items:center;justify-content:flex-start;
+    border-bottom:none;height:100%;gap:10px;padding:2px 0;
+  }
+  .kcol.collapsed .kcol-head .name{
+    writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-size:11px;
+  }
   .kcol-scroll{overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px;}
   .kcol-scroll::-webkit-scrollbar{width:6px;}
   .kcol-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px;}
@@ -141,8 +154,8 @@
   .search::placeholder{color:var(--faint);}
 
   .board-table{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
-  .thead{display:grid;grid-template-columns:85px 1fr 125px 165px 145px 85px;padding:12px 18px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);font-weight:600;}
-  .trow{display:grid;grid-template-columns:85px 1fr 125px 165px 145px 85px;padding:12px 18px;border-bottom:1px solid var(--border);align-items:center;font-size:13px;}
+  .thead{display:grid;grid-template-columns:85px 1fr 115px 110px 110px 80px;padding:12px 18px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);font-weight:600;}
+  .trow{display:grid;grid-template-columns:85px 1fr 115px 110px 110px 80px;padding:12px 18px;border-bottom:1px solid var(--border);align-items:center;font-size:13px;}
   .trow:last-child{border-bottom:none;}
   .trow:hover{background:var(--panel-2);}
   .trow a.tid{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px;font-weight:600;text-decoration:none;}
@@ -172,11 +185,13 @@
 
   .assign-select{
     background:var(--panel-2);border:1px solid var(--border);color:var(--text);
-    padding:6px 8px;border-radius:7px;font-size:11.5px;max-width:160px;
+    padding:5px 6px;border-radius:7px;font-size:11px;width:100px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
   .onboard-link{
-    background:none;border:none;color:var(--accent);font-size:11.5px;font-weight:600;
-    cursor:pointer;padding:0;text-decoration:none;
+    background:none;border:none;color:var(--accent);font-size:11px;font-weight:600;
+    cursor:pointer;padding:0;text-decoration:none;max-width:105px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom;
   }
   .onboard-link:hover{text-decoration:underline;}
   .onboard-empty{color:var(--faint);font-size:11.5px;}
@@ -211,8 +226,8 @@
         <select id="board-select"></select>
         <button class="icon-btn" id="rename-board" title="Rename board">✎</button>
       </div>
-      <button class="sync-btn" id="sync-btn">
-        <span class="arrow">⟳</span> Sync <span class="sync-time" id="sync-time">—</span>
+      <button class="sync-btn" id="sync-btn" title="Manual only — stamps the current time. Doesn't pull live Linear data yet.">
+        <span class="arrow">⟳</span> Mark synced <span class="sync-time" id="sync-time">—</span>
       </button>
     </div>
   </header>
@@ -226,7 +241,6 @@
     <div class="chip with_questions"><div class="n" id="c-with_questions">–</div><div class="l">With Questions</div></div>
     <div class="chip recheck"><div class="n" id="c-recheck">–</div><div class="l">For Rechecking</div></div>
     <div class="chip done"><div class="n" id="c-done">–</div><div class="l">Done</div></div>
-    <div class="chip archived"><div class="n" id="c-archived">–</div><div class="l">Archived</div></div>
   </div>
 
   <div class="board-label">
@@ -244,7 +258,6 @@
     <button class="filter-btn" data-filter="with_questions">With Questions</button>
     <button class="filter-btn" data-filter="recheck">For Rechecking</button>
     <button class="filter-btn" data-filter="done">Done</button>
-    <button class="filter-btn" data-filter="archived">Archived</button>
     <input class="search" id="search" placeholder="Search ticket or title…">
   </div>
 
@@ -302,12 +315,11 @@ const columns = [
   {key:"with_questions", label:"With Questions"},
   {key:"recheck", label:"For Rechecking"},
   {key:"done", label:"Done"},
-  {key:"archived", label:"Archived"},
 ];
 
 const qaBadgeLabel = {
   qa_staging:"QA / Staging", testing:"Testing", passed:"Passed", failed:"Failed",
-  with_questions:"With Questions", recheck:"For Rechecking", done:"Done", archived:"Archived"
+  with_questions:"With Questions", recheck:"For Rechecking", done:"Done"
 };
 
 const STORAGE_KEY = "qa_tracker_state_v3";
@@ -336,6 +348,7 @@ function defaultState(){
     assignments, // ticketId -> boardId
     cardColumns, // "boardId|ticketId" -> columnKey
     lastSync: "2026-07-23T09:00:00.000Z",
+    collapsedCols: {},
   };
 }
 
@@ -347,6 +360,7 @@ function loadState(){
     if(!raw) return;
     const saved = JSON.parse(raw);
     if(saved && saved.boards && saved.boards.length) state = saved;
+    if(!state.collapsedCols) state.collapsedCols = {};
   }catch(e){}
 }
 
@@ -399,6 +413,8 @@ document.getElementById('rename-board').addEventListener('click', () => {
     b.name = name.trim();
     persist();
     populateBoardSelect();
+    document.getElementById('board-title').textContent = b.name;
+    renderList(currentList());
   }
 });
 
@@ -427,8 +443,13 @@ function renderKanban(){
   const onBoard = ticketsOnActiveBoard();
   board.innerHTML = columns.map(col => {
     const items = onBoard.filter(t => (state.cardColumns[state.activeBoardId + "|" + t.id] || "qa_staging") === col.key);
-    return `<div class="kcol" data-key="${col.key}">
-      <div class="kcol-head"><span class="name">${col.label}</span><span class="count">${items.length}</span></div>
+    const collapsed = !!state.collapsedCols[col.key];
+    return `<div class="kcol ${collapsed ? 'collapsed' : ''}" data-key="${col.key}">
+      <div class="kcol-head">
+        <span class="name">${col.label}</span>
+        <span class="count">${items.length}</span>
+        <button class="collapse-btn" data-key="${col.key}" title="${collapsed ? 'Expand' : 'Collapse'} column">${collapsed ? '▸' : '▾'}</button>
+      </div>
       <div class="kcol-scroll">
         ${items.length ? items.map(t => `
           <div class="card" draggable="true" data-id="${t.id}">
@@ -443,6 +464,24 @@ function renderKanban(){
       </div>
     </div>`;
   }).join('');
+
+  board.querySelectorAll('.collapse-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = btn.dataset.key;
+      state.collapsedCols[key] = !state.collapsedCols[key];
+      persist();
+      renderKanban();
+    });
+  });
+
+  board.querySelectorAll('.kcol.collapsed').forEach(col => {
+    col.addEventListener('click', () => {
+      state.collapsedCols[col.dataset.key] = false;
+      persist();
+      renderKanban();
+    });
+  });
 
   board.querySelectorAll('.card').forEach(card => {
     card.addEventListener('dragstart', e => {
@@ -498,8 +537,8 @@ function currentList(){
 }
 
 function boardOptionsHtml(selectedId){
-  return `<option value="">— Unassigned —</option>` + state.boards.map(b =>
-    `<option value="${b.id}" ${b.id===selectedId ? 'selected':''}>${b.name}</option>`
+  return `<option value="">—</option>` + state.boards.map(b =>
+    `<option value="${b.id}" ${b.id===selectedId ? 'selected':''}>${truncate(b.name, 16)}</option>`
   ).join('');
 }
 
@@ -513,7 +552,7 @@ function renderList(list){
       ? `<span class="badge ${colKey}"><span class="dotb"></span>${qaBadgeLabel[colKey]}</span>`
       : `<span class="badge unassigned"><span class="dotb"></span>Unassigned</span>`;
     const onBoardCell = bId
-      ? `<button class="onboard-link" data-goto="${bId}">${getBoard(bId) ? getBoard(bId).name : '—'} ↗</button>`
+      ? `<button class="onboard-link" data-goto="${bId}" title="${getBoard(bId) ? getBoard(bId).name : ''}">${getBoard(bId) ? truncate(getBoard(bId).name, 14) : '—'} ↗</button>`
       : `<span class="onboard-empty">—</span>`;
 
     return `<div class="trow">
