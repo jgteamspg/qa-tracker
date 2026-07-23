@@ -763,6 +763,28 @@ function refreshEverything(){
   renderList(currentList());
 }
 
+function jsonpPull(){
+  return new Promise((resolve, reject) => {
+    const cbName = 'qaTrackerCb_' + Date.now() + '_' + Math.floor(Math.random()*10000);
+    const script = document.createElement('script');
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if(!settled){ settled = true; cleanup(); reject(new Error('timeout')); }
+    }, 8000);
+    function cleanup(){
+      clearTimeout(timeout);
+      delete window[cbName];
+      script.remove();
+    }
+    window[cbName] = function(data){
+      if(!settled){ settled = true; cleanup(); resolve(data); }
+    };
+    script.onerror = () => { if(!settled){ settled = true; cleanup(); reject(new Error('script load error')); } };
+    script.src = SCRIPT_URL + '?callback=' + cbName + '&_=' + Date.now();
+    document.body.appendChild(script);
+  });
+}
+
 async function pullFromCloud(showConfirm){
   if(showConfirm){
     const ok = confirm('Pull latest from the cloud? This overwrites any local changes on this device that were never pushed.');
@@ -770,9 +792,7 @@ async function pullFromCloud(showConfirm){
   }
   setCloudStatus('Pulling…', 'busy');
   try{
-    const res = await fetch(SCRIPT_URL, {method:'GET'});
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
+    const data = await jsonpPull();
     const normalized = normalizeState(data);
     if(normalized){
       state = normalized;
@@ -789,15 +809,28 @@ async function pullFromCloud(showConfirm){
 
 async function pushToCloud(){
   setCloudStatus('Pushing…', 'busy');
+  const payload = JSON.stringify(state);
   try{
-    const res = await fetch(SCRIPT_URL, {
+    // no-cors: request goes out and Apps Script executes it, but the response is
+    // "opaque" so we can't read it directly — we verify with a follow-up JSONP pull instead.
+    await fetch(SCRIPT_URL, {
       method: 'POST',
+      mode: 'no-cors',
       headers: {'Content-Type': 'text/plain;charset=utf-8'},
-      body: JSON.stringify(state)
+      body: payload
     });
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    await res.json();
-    setCloudStatus('Pushed ✓', 'ok');
+    setCloudStatus('Verifying…', 'busy');
+    await new Promise(r => setTimeout(r, 1200));
+    try{
+      const data = await jsonpPull();
+      if(JSON.stringify(data) === payload){
+        setCloudStatus('Pushed ✓', 'ok');
+      } else {
+        setCloudStatus('Sent (check)', 'ok');
+      }
+    }catch(e){
+      setCloudStatus('Sent*', 'ok');
+    }
   }catch(err){
     setCloudStatus('Push failed', 'err');
   }
