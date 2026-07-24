@@ -265,6 +265,7 @@
       <div class="activity-head">
         <h2>Activity log</h2>
         <div class="activity-head-btns">
+          <button class="icon-btn" id="activity-export" title="Export log as CSV">⬇ Export</button>
           <button class="icon-btn" id="activity-clear" title="Clear activity log">🗑 Clear</button>
           <button class="icon-btn" id="activity-close" title="Close">✕</button>
         </div>
@@ -527,6 +528,29 @@ document.getElementById('navicon').addEventListener('click', () => {
 document.getElementById('activity-close').addEventListener('click', () => {
   document.getElementById('activity-overlay').classList.remove('open');
 });
+function exportActivityLog(){
+  if(!state.activity.length){
+    alert('No activity to export yet.');
+    return;
+  }
+  const esc = s => '"' + String(s).replace(/"/g, '""') + '"';
+  const header = ['Ticket', 'Before', 'After', 'Date & time'].map(esc).join(',');
+  const rows = state.activity.map(a =>
+    [a.ticketId, a.before, a.after, fmtDateTime(a.timestamp)].map(esc).join(',')
+  );
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'qa-tracker-activity-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('activity-export').addEventListener('click', exportActivityLog);
 document.getElementById('activity-clear').addEventListener('click', () => {
   if(!state.activity.length) return;
   const ok = confirm(`Clear all ${state.activity.length} activity log entries? This can't be undone.`);
