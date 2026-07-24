@@ -799,7 +799,8 @@ async function pullFromCloud(){
       refreshEverything();
       setCloudStatus('Synced', 'ok');
     } else {
-      setCloudStatus('No cloud data yet', 'err');
+      // cloud is empty (first run) — seed it with what we've got locally
+      pushToCloud();
     }
   }catch(err){
     setCloudStatus('Sync unavailable', 'err');
