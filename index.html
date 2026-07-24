@@ -93,6 +93,7 @@
     padding:16px 20px;border-bottom:1px solid var(--border);
   }
   .activity-head h2{font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0;font-weight:600;}
+  .activity-head-btns{display:flex;align-items:center;gap:8px;}
   .activity-table-wrap{overflow-y:auto;padding:0 0 8px;}
   .activity-thead{
     display:grid;grid-template-columns:80px 1fr 1fr 150px;padding:10px 20px;
@@ -263,7 +264,10 @@
     <div class="activity-panel">
       <div class="activity-head">
         <h2>Activity log</h2>
-        <button class="icon-btn" id="activity-close" title="Close">✕</button>
+        <div class="activity-head-btns">
+          <button class="icon-btn" id="activity-clear" title="Clear activity log">🗑 Clear</button>
+          <button class="icon-btn" id="activity-close" title="Close">✕</button>
+        </div>
       </div>
       <div class="activity-table-wrap">
         <div class="activity-thead">
@@ -523,6 +527,14 @@ document.getElementById('navicon').addEventListener('click', () => {
 document.getElementById('activity-close').addEventListener('click', () => {
   document.getElementById('activity-overlay').classList.remove('open');
 });
+document.getElementById('activity-clear').addEventListener('click', () => {
+  if(!state.activity.length) return;
+  const ok = confirm(`Clear all ${state.activity.length} activity log entries? This can't be undone.`);
+  if(!ok) return;
+  state.activity = [];
+  persist();
+  renderActivity();
+});
 document.getElementById('activity-overlay').addEventListener('click', (e) => {
   if(e.target.id === 'activity-overlay') e.currentTarget.classList.remove('open');
 });
@@ -657,14 +669,18 @@ function updateChips(){
 let currentFilter = 'all';
 let currentSearch = '';
 
+function ticketQaStatus(t){
+  const bId = state.assignments[t.id];
+  if(!bId) return null;
+  return state.cardColumns[bId + "|" + t.id] || "qa_staging";
+}
+
 function currentList(){
   let list = tickets;
-  if(currentFilter !== 'all'){
-    list = list.filter(t => {
-      const bId = state.assignments[t.id];
-      if(!bId) return false;
-      return (state.cardColumns[bId + "|" + t.id] || "qa_staging") === currentFilter;
-    });
+  if(currentFilter === 'all'){
+    list = list.filter(t => ticketQaStatus(t) !== 'done');
+  } else {
+    list = list.filter(t => ticketQaStatus(t) === currentFilter);
   }
   if(currentSearch){
     const q = currentSearch.toLowerCase();
