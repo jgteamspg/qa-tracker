@@ -92,6 +92,14 @@
   .cloud-status.ok{color:var(--passed);}
   .cloud-status.err{color:var(--issue);}
   .cloud-status.busy{color:var(--queue);}
+
+  .linear-check-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    padding:8px 13px;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .linear-check-btn:hover{border-color:var(--accent);}
+  .linear-check-btn:disabled{opacity:0.6;cursor:default;}
   .activity-overlay{
     display:none;position:fixed;inset:0;background:rgba(2,5,20,0.6);
     z-index:50;align-items:flex-start;justify-content:center;padding:60px 20px;
@@ -291,6 +299,7 @@
         <span class="cloud-dot" id="cloud-dot"></span>
         <span class="cloud-status" id="cloud-status">—</span>
       </div>
+      <button class="icon-btn linear-check-btn" id="linear-check-btn" title="Check Linear for new tickets assigned to you">🔍 Check Linear</button>
     </div>
   </header>
 
@@ -377,9 +386,10 @@ const sprints = {
   s1: { label: "Jul · Wk 3", range: "Jul 14–20" },
   s2: { label: "Jun · Wk 4", range: "Jun 22–26" },
   s3: { label: "Jul · Wk 4", range: "Jul 27–31" },
+  new: { label: "New", range: "unsorted" },
 };
 
-const tickets = [
+const baseTickets = [
   {id:"SOS-876", title:"Events permissions — members cannot see other companies' enrollments", group:"Top Gun sprint", linearStatus:"QA / Staging", updated:"Jul 21", sprint:"s1", url:"https://linear.app/teamspg/issue/SOS-876/qa-events-permissions-members-cannot-assign-or-see-other-companies"},
   {id:"SOS-875", title:"FTW regression — purchase still enrolls the owner directly", group:"Top Gun sprint", linearStatus:"QA / Staging", updated:"Jul 27", sprint:"s1", url:"https://linear.app/teamspg/issue/SOS-875/qa-ftw-regression-purchase-still-enrolls-the-owner-directly"},
   {id:"SOS-869", title:"Admin assigns a technician to a Top Gun enrollment", group:"Top Gun sprint", linearStatus:"Done", updated:"Jul 20", sprint:"s1", url:"https://linear.app/teamspg/issue/SOS-869/qa-admin-assigns-a-technician-to-a-top-gun-enrollment"},
@@ -413,6 +423,9 @@ const tickets = [
   {id:"SOS-929", title:"Growth Map — campaigns board, doorways section, content grid & pipeline", group:"Marketing features", linearStatus:"QA / Staging", updated:"Jul 27", sprint:"s3", url:"https://linear.app/teamspg/issue/SOS-929/qa-growth-map-campaigns-board-doorways-section-content-grid-and"},
 ];
 
+function getAllTickets(){
+  return baseTickets.concat(state.extraTickets || []);
+}
 
 const columnDefs = {
   qa_staging:{label:"QA / Staging"},
@@ -443,7 +456,7 @@ function defaultState(){
   const doneIds = ["SOS-869"];
   const stagingIds = ["SOS-889","SOS-887","SOS-885","SOS-883","SOS-881","SOS-811","SOS-813"];
 
-  tickets.forEach(t => { assignments[t.id] = boardId; });
+  baseTickets.forEach(t => { assignments[t.id] = boardId; });
   passedIds.forEach(id => cardColumns[boardId + "|" + id] = "passed");
   failedIds.forEach(id => cardColumns[boardId + "|" + id] = "failed");
   recheckIds.forEach(id => cardColumns[boardId + "|" + id] = "recheck");
@@ -458,6 +471,7 @@ function defaultState(){
     collapsedCols: {},
     columnOrder: [...defaultColumnOrder],
     activity: [], // {ticketId, before, after, timestamp}
+    extraTickets: [], // tickets discovered via "Check Linear" that aren't in baseTickets
   };
 }
 
@@ -472,6 +486,7 @@ function loadState(){
     if(!state.collapsedCols) state.collapsedCols = {};
     if(!state.columnOrder) state.columnOrder = [...defaultColumnOrder];
     if(!state.activity) state.activity = [];
+    if(!state.extraTickets) state.extraTickets = [];
     defaultColumnOrder.forEach(k => { if(!state.columnOrder.includes(k)) state.columnOrder.push(k); });
     state.boards.forEach(b => { if(typeof b.archived === 'undefined') b.archived = false; });
   }catch(e){}
@@ -693,6 +708,49 @@ document.getElementById('report-copy').addEventListener('click', copyReportAsTex
 document.getElementById('activity-close').addEventListener('click', () => {
   document.getElementById('activity-overlay').classList.remove('open');
 });
+
+// ---- check Linear for new tickets ----
+async function checkLinearForNewTickets(){
+  const btn = document.getElementById('linear-check-btn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '🔍 Checking…';
+  try{
+    const issues = await jsonpRequest('&action=linear');
+    if(issues && issues.error){
+      throw new Error(issues.error);
+    }
+    const knownIds = new Set(getAllTickets().map(t => t.id));
+    const newOnes = (issues || []).filter(iss => !knownIds.has(iss.id));
+
+    if(newOnes.length){
+      newOnes.forEach(iss => {
+        state.extraTickets.push({
+          id: iss.id,
+          title: iss.title,
+          group: iss.group || 'Ungrouped',
+          linearStatus: iss.linearStatus,
+          updated: iss.updated,
+          sprint: 'new',
+          url: iss.url
+        });
+      });
+      persist();
+      refreshEverything();
+      btn.textContent = '✓ ' + newOnes.length + ' new';
+    } else {
+      btn.textContent = '✓ No new tickets';
+    }
+  }catch(err){
+    btn.textContent = '⚠ Check failed';
+  }
+  setTimeout(() => {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }, 3000);
+}
+document.getElementById('linear-check-btn').addEventListener('click', checkLinearForNewTickets);
+
 function exportActivityLog(){
   if(!state.activity.length){
     alert('No activity to export yet.');
@@ -730,7 +788,7 @@ document.getElementById('activity-overlay').addEventListener('click', (e) => {
 
 // ---- kanban ----
 function ticketsOnActiveBoard(){
-  return tickets.filter(t => state.assignments[t.id] === state.activeBoardId);
+  return getAllTickets().filter(t => state.assignments[t.id] === state.activeBoardId);
 }
 
 function orderedColumns(){
@@ -865,7 +923,7 @@ function ticketQaStatus(t){
 }
 
 function currentList(){
-  let list = tickets;
+  let list = getAllTickets();
   if(currentFilter === 'all'){
     list = list.filter(t => ticketQaStatus(t) !== 'done');
   } else {
@@ -959,6 +1017,7 @@ function normalizeState(obj){
   if(!obj.collapsedCols) obj.collapsedCols = {};
   if(!obj.columnOrder) obj.columnOrder = [...defaultColumnOrder];
   if(!obj.activity) obj.activity = [];
+  if(!obj.extraTickets) obj.extraTickets = [];
   defaultColumnOrder.forEach(k => { if(!obj.columnOrder.includes(k)) obj.columnOrder.push(k); });
   obj.boards.forEach(b => { if(typeof b.archived === 'undefined') b.archived = false; });
   return obj;
@@ -971,14 +1030,14 @@ function refreshEverything(){
   renderList(currentList());
 }
 
-function jsonpPull(){
+function jsonpRequest(extraParams){
   return new Promise((resolve, reject) => {
     const cbName = 'qaTrackerCb_' + Date.now() + '_' + Math.floor(Math.random()*10000);
     const script = document.createElement('script');
     let settled = false;
     const timeout = setTimeout(() => {
       if(!settled){ settled = true; cleanup(); reject(new Error('timeout')); }
-    }, 8000);
+    }, 15000);
     function cleanup(){
       clearTimeout(timeout);
       delete window[cbName];
@@ -988,9 +1047,13 @@ function jsonpPull(){
       if(!settled){ settled = true; cleanup(); resolve(data); }
     };
     script.onerror = () => { if(!settled){ settled = true; cleanup(); reject(new Error('script load error')); } };
-    script.src = SCRIPT_URL + '?callback=' + cbName + '&_=' + Date.now();
+    script.src = SCRIPT_URL + '?callback=' + cbName + '&_=' + Date.now() + (extraParams || '');
     document.body.appendChild(script);
   });
+}
+
+function jsonpPull(){
+  return jsonpRequest('');
 }
 
 async function pullFromCloud(){
