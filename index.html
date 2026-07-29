@@ -157,18 +157,59 @@
   .ta-add-row{padding:14px 20px;}
 
   .standup-list{max-height:60vh;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;}
-  .standup-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:14px;}
-  .standup-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;}
+  .standup-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:14px;transition:border-color .15s ease;}
+  .standup-card:hover{border-color:var(--accent);}
+  .standup-card.editing{border-color:var(--accent);}
+  .standup-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;}
+  .standup-card-head.has-body{margin-bottom:8px;}
+  .standup-title-row{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+  .standup-chevron{color:var(--faint);font-size:10px;flex-shrink:0;}
+  .standup-title-view{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .unsaved-dot{color:var(--queue);font-size:10px;flex-shrink:0;}
+  .standup-text-view{font-size:13px;color:var(--muted);white-space:pre-wrap;line-height:1.5;cursor:text;}
+  .standup-text-view .empty-hint{color:var(--faint);font-style:italic;}
   .standup-title-input{
-    background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text);
+    background:transparent;border:none;border-bottom:1px solid transparent;color:var(--accent);
     font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;flex:1;padding:4px 2px;
   }
   .standup-title-input:focus{outline:none;border-bottom:1px solid var(--accent);}
   .standup-textarea{
-    width:100%;min-height:120px;background:var(--panel);border:1px solid var(--border);color:var(--text);
-    border-radius:8px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;
+    width:100%;height:160px;background:var(--panel);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;resize:none;overflow-y:auto;
   }
   .standup-textarea:focus{outline:none;border-color:var(--accent);}
+  .standup-edit-actions{display:flex;align-items:center;gap:10px;margin-top:10px;}
+  .unsaved-hint{font-size:11px;color:var(--queue);flex:1;}
+  .standup-cancel-btn{
+    background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;
+    padding:7px 14px;border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;
+  }
+  .standup-cancel-btn:hover{color:var(--text);border-color:var(--faint);}
+  .standup-save-btn{
+    background:var(--accent);border:none;color:#04181b;cursor:pointer;font-weight:700;
+    padding:7px 16px;border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;
+  }
+  .standup-save-btn:hover{filter:brightness(1.08);}
+
+  .standup-archive-section{border-top:1px solid var(--border);padding:12px 20px 16px;}
+  .standup-archive-head{
+    display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--muted);
+    font-size:12px;font-weight:600;padding:6px 0;
+  }
+  .standup-archive-head:hover{color:var(--text);}
+  .standup-archive-list{display:flex;flex-direction:column;gap:10px;margin-top:8px;max-height:40vh;overflow-y:auto;}
+  .standup-week-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+  .standup-week-head{display:flex;align-items:center;gap:8px;cursor:pointer;}
+  .standup-week-label{
+    background:transparent;border:none;border-bottom:1px solid transparent;color:var(--accent);
+    font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:12.5px;flex:1;padding:3px 2px;
+  }
+  .standup-week-label:focus{outline:none;border-bottom:1px solid var(--accent);}
+  .standup-week-count{font-size:10.5px;color:var(--faint);font-family:'JetBrains Mono',monospace;flex-shrink:0;}
+  .standup-week-body{margin-top:10px;display:flex;flex-direction:column;gap:10px;padding-left:18px;}
+  .standup-week-day-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:12px;color:var(--text);margin-bottom:3px;}
+  .standup-week-day-text{font-size:12px;color:var(--muted);white-space:pre-wrap;line-height:1.5;}
+  .standup-week-day-text .empty-hint{color:var(--faint);font-style:italic;}
 
   .report-wrap{display:flex;gap:28px;padding:22px 24px;flex-wrap:wrap;align-items:center;}
   .report-donut{flex-shrink:0;}
@@ -371,11 +412,19 @@
       <div class="activity-head">
         <h2>Standup Notes</h2>
         <div class="activity-head-btns">
+          <button class="icon-btn" id="standup-archive-btn" title="Archive this week's notes and start fresh">📦 Archive week</button>
           <button class="icon-btn" id="standup-add" title="Log a new day">＋ Add day</button>
           <button class="icon-btn" id="standup-close" title="Close">✕</button>
         </div>
       </div>
       <div class="standup-list" id="standup-list"></div>
+      <div class="standup-archive-section">
+        <div class="standup-archive-head" id="standup-archive-head">
+          <span class="standup-chevron" id="archive-section-chevron">▸</span>
+          <span>Archived Weeks</span>
+        </div>
+        <div class="standup-archive-list" id="standup-archive-list" style="display:none;"></div>
+      </div>
     </div>
   </div>
 
@@ -440,7 +489,7 @@
     <div class="chip testing"><div class="n" id="c-testing">–</div><div class="l">Testing</div></div>
     <div class="chip passed"><div class="n" id="c-passed">–</div><div class="l">Passed</div></div>
     <div class="chip failed"><div class="n" id="c-failed">–</div><div class="l">Failed</div></div>
-    <div class="chip with_questions"><div class="n" id="c-with_questions">–</div><div class="l">With Questions</div></div>
+    <div class="chip with_questions"><div class="n" id="c-with_questions">–</div><div class="l">Blocked/On-Hold</div></div>
     <div class="chip recheck"><div class="n" id="c-recheck">–</div><div class="l">For Rechecking</div></div>
     <div class="chip done"><div class="n" id="c-done">–</div><div class="l">Done</div></div>
   </div>
@@ -457,7 +506,7 @@
     <button class="filter-btn" data-filter="testing">Testing</button>
     <button class="filter-btn" data-filter="passed">Passed</button>
     <button class="filter-btn" data-filter="failed">Failed</button>
-    <button class="filter-btn" data-filter="with_questions">With Questions</button>
+    <button class="filter-btn" data-filter="with_questions">Blocked/On-Hold</button>
     <button class="filter-btn" data-filter="recheck">For Rechecking</button>
     <button class="filter-btn" data-filter="done">Done</button>
     <button class="filter-btn" data-filter="unassigned">Unassigned</button>
@@ -531,7 +580,7 @@ const columnDefs = {
   testing:{label:"Testing"},
   passed:{label:"Passed"},
   failed:{label:"Failed"},
-  with_questions:{label:"With Questions"},
+  with_questions:{label:"Blocked/On-Hold"},
   recheck:{label:"For Rechecking"},
   done:{label:"Done"},
 };
@@ -539,7 +588,7 @@ const defaultColumnOrder = Object.keys(columnDefs);
 
 const qaBadgeLabel = {
   qa_staging:"QA / Staging", testing:"Testing", passed:"Passed", failed:"Failed",
-  with_questions:"With Questions", recheck:"For Rechecking", done:"Done"
+  with_questions:"Blocked/On-Hold", recheck:"For Rechecking", done:"Done"
 };
 
 const STORAGE_KEY = "qa_tracker_state_v3";
@@ -573,6 +622,7 @@ function defaultState(){
     extraTickets: [], // tickets discovered via "Check Linear" that aren't in baseTickets
     testAccounts: [], // {id, username, password, envName, envUrl}
     standupNotes: [], // {id, title, text, createdAt}
+    standupArchive: [], // {id, label, notes:[{id,title,text}], archivedAt}
     archivedTickets: {}, // ticketId -> true (independent of board/kanban status)
   };
 }
@@ -591,6 +641,7 @@ function loadState(){
     if(!state.extraTickets) state.extraTickets = [];
     if(!state.testAccounts) state.testAccounts = [];
     if(!state.standupNotes) state.standupNotes = [];
+    if(!state.standupArchive) state.standupArchive = [];
     if(!state.archivedTickets) state.archivedTickets = {};
     defaultColumnOrder.forEach(k => { if(!state.columnOrder.includes(k)) state.columnOrder.push(k); });
     state.boards.forEach(b => { if(typeof b.archived === 'undefined') b.archived = false; });
@@ -810,6 +861,7 @@ document.getElementById('menu-accounts').addEventListener('click', () => {
 document.getElementById('menu-standup').addEventListener('click', () => {
   document.getElementById('nav-menu').classList.remove('open');
   renderStandup();
+  renderStandupArchive();
   document.getElementById('standup-overlay').classList.add('open');
 });
 document.getElementById('report-close').addEventListener('click', () => {
@@ -903,37 +955,133 @@ document.getElementById('accounts-overlay').addEventListener('click', (e) => {
 });
 
 // ---- standup notes ----
+let editingStandupId = null;
+const standupDrafts = {}; // id -> {title, text}  (in-memory only, until Saved)
+
+function standupHasUnsaved(id){
+  const d = standupDrafts[id];
+  if(!d) return false;
+  const n = state.standupNotes.find(x => x.id === id);
+  if(!n) return false;
+  return d.title !== n.title || d.text !== n.text;
+}
+
+// standupExpanded resets each time the page loads — cards start minimized by default every session
+const standupExpanded = new Set();
+
 function renderStandup(){
   const list = document.getElementById('standup-list');
   if(!state.standupNotes.length){
     list.innerHTML = '<div class="activity-empty">No standup notes yet — click "＋ Add day" to log one.</div>';
     return;
   }
-  list.innerHTML = state.standupNotes.map(n => `
-    <div class="standup-card">
-      <div class="standup-card-head">
-        <input class="standup-title-input" data-id="${n.id}" data-field="title" value="${escapeAttr(n.title)}" placeholder="Day label">
-        <button class="ta-icon-btn" data-id="${n.id}" data-standup-delete title="Delete this day">🗑</button>
+  list.innerHTML = state.standupNotes.map(n => {
+    const draft = standupDrafts[n.id];
+    const displayTitle = draft ? draft.title : n.title;
+    const displayText = draft ? draft.text : n.text;
+    const unsaved = standupHasUnsaved(n.id);
+    const editing = editingStandupId === n.id;
+    const expanded = editing || standupExpanded.has(n.id);
+
+    if(editing){
+      return `<div class="standup-card editing" data-id="${n.id}">
+        <div class="standup-card-head has-body">
+          <input class="standup-title-input" data-id="${n.id}" value="${escapeAttr(displayTitle)}" placeholder="Day label">
+          <button class="ta-icon-btn" data-standup-delete data-id="${n.id}" title="Delete this day">🗑</button>
+        </div>
+        <textarea class="standup-textarea" data-id="${n.id}" placeholder="What did you work on, blockers, plans…">${escapeAttr(displayText)}</textarea>
+        <div class="standup-edit-actions">
+          <span class="unsaved-hint">${unsaved ? '● Unsaved changes' : ''}</span>
+          <button class="standup-cancel-btn" data-id="${n.id}">Cancel</button>
+          <button class="standup-save-btn" data-id="${n.id}">💾 Save</button>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="standup-card" data-id="${n.id}">
+      <div class="standup-card-head ${expanded ? 'has-body' : ''}" data-standup-toggle data-id="${n.id}">
+        <div class="standup-title-row">
+          <span class="standup-chevron">${expanded ? '▾' : '▸'}</span>
+          <div class="standup-title-view">${escapeAttr(displayTitle) || 'Untitled'}</div>
+          ${unsaved ? '<span class="unsaved-dot" title="Unsaved changes">●</span>' : ''}
+        </div>
+        <button class="ta-icon-btn" data-standup-delete data-id="${n.id}" title="Delete this day">🗑</button>
       </div>
-      <textarea class="standup-textarea" data-id="${n.id}" data-field="text" placeholder="What did you work on, blockers, plans…">${escapeAttr(n.text)}</textarea>
-    </div>
-  `).join('');
+      ${expanded ? `<div class="standup-text-view" data-standup-open data-id="${n.id}">${displayText ? escapeAttr(displayText) : '<span class="empty-hint">Click to add notes…</span>'}</div>` : ''}
+    </div>`;
+  }).join('');
   wireStandupCards();
 }
 
 function wireStandupCards(){
-  document.querySelectorAll('#standup-list .standup-title-input, #standup-list .standup-textarea').forEach(el => {
-    el.addEventListener('change', (e) => {
-      const id = e.target.dataset.id;
-      const field = e.target.dataset.field;
-      const note = state.standupNotes.find(n => n.id === id);
-      if(note){ note[field] = e.target.value; persist(); }
+  document.querySelectorAll('#standup-list [data-standup-toggle]').forEach(head => {
+    head.addEventListener('click', (e) => {
+      if(e.target.closest('[data-standup-delete]')) return;
+      const id = head.dataset.id;
+      if(standupExpanded.has(id)) standupExpanded.delete(id);
+      else standupExpanded.add(id);
+      renderStandup();
     });
   });
-  document.querySelectorAll('#standup-list [data-standup-delete]').forEach(btn => {
+
+  document.querySelectorAll('#standup-list [data-standup-open]').forEach(body => {
+    body.addEventListener('click', () => {
+      const id = body.dataset.id;
+      const n = state.standupNotes.find(x => x.id === id);
+      if(!standupDrafts[id]) standupDrafts[id] = { title: n.title, text: n.text };
+      editingStandupId = id;
+      renderStandup();
+    });
+  });
+
+  document.querySelectorAll('#standup-list .standup-title-input, #standup-list .standup-textarea').forEach(el => {
+    el.addEventListener('input', (e) => {
+      const id = e.target.dataset.id;
+      const isTitle = e.target.classList.contains('standup-title-input');
+      if(!standupDrafts[id]){
+        const n = state.standupNotes.find(x => x.id === id);
+        standupDrafts[id] = { title: n.title, text: n.text };
+      }
+      standupDrafts[id][isTitle ? 'title' : 'text'] = e.target.value;
+      // update the unsaved hint live without a full re-render (keeps cursor position intact)
+      const card = e.target.closest('.standup-card');
+      const hint = card.querySelector('.unsaved-hint');
+      if(hint) hint.textContent = standupHasUnsaved(id) ? '● Unsaved changes' : '';
+    });
+  });
+
+  document.querySelectorAll('.standup-save-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.id;
+      const draft = standupDrafts[id];
+      const n = state.standupNotes.find(x => x.id === id);
+      if(draft && n){
+        n.title = draft.title.trim() || n.title;
+        n.text = draft.text;
+      }
+      delete standupDrafts[id];
+      editingStandupId = null;
+      persist();
+      renderStandup();
+    });
+  });
+
+  document.querySelectorAll('.standup-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      delete standupDrafts[id];
+      editingStandupId = null;
+      renderStandup();
+    });
+  });
+
+  document.querySelectorAll('#standup-list [data-standup-delete]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
       if(!confirm('Delete this standup note?')) return;
+      delete standupDrafts[id];
+      if(editingStandupId === id) editingStandupId = null;
       state.standupNotes = state.standupNotes.filter(n => n.id !== id);
       persist();
       renderStandup();
@@ -941,18 +1089,123 @@ function wireStandupCards(){
   });
 }
 
+function computeWeekLabel(){
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMon = (day === 0 ? -6 : 1 - day);
+  const mon = new Date(now);
+  mon.setDate(now.getDate() + diffToMon);
+  const fri = new Date(mon);
+  fri.setDate(mon.getDate() + 4);
+  const monStr = mon.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+  const friStr = fri.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  return monStr + ' – ' + friStr;
+}
+
+document.getElementById('standup-archive-btn').addEventListener('click', () => {
+  if(!state.standupNotes.length){
+    alert('Nothing to archive yet — add some standup notes first.');
+    return;
+  }
+  const ok = confirm(`Archive all ${state.standupNotes.length} note(s) into this week's log? The list will be cleared and ready for next week.`);
+  if(!ok) return;
+  const snapshot = state.standupNotes.map(n => ({ id: n.id, title: n.title, text: n.text }));
+  state.standupArchive.unshift({ id: 'wk' + Date.now(), label: computeWeekLabel(), notes: snapshot, archivedAt: new Date().toISOString() });
+  state.standupNotes = [];
+  Object.keys(standupDrafts).forEach(k => delete standupDrafts[k]);
+  standupExpanded.clear();
+  editingStandupId = null;
+  persist();
+  renderStandup();
+  renderStandupArchive();
+});
+
+const standupArchiveExpanded = new Set();
+
+function renderStandupArchive(){
+  const wrap = document.getElementById('standup-archive-list');
+  if(!state.standupArchive.length){
+    wrap.innerHTML = '<div class="activity-empty" style="padding:10px 0;">No archived weeks yet.</div>';
+    return;
+  }
+  wrap.innerHTML = state.standupArchive.map(w => {
+    const expanded = standupArchiveExpanded.has(w.id);
+    return `<div class="standup-week-card">
+      <div class="standup-week-head" data-week-toggle data-id="${w.id}">
+        <span class="standup-chevron">${expanded ? '▾' : '▸'}</span>
+        <input class="standup-week-label" data-id="${w.id}" value="${escapeAttr(w.label)}">
+        <span class="standup-week-count">${w.notes.length} note${w.notes.length === 1 ? '' : 's'}</span>
+        <button class="ta-icon-btn" data-week-delete data-id="${w.id}" title="Delete this archived week">🗑</button>
+      </div>
+      ${expanded ? `<div class="standup-week-body">${w.notes.map(n => `
+        <div>
+          <div class="standup-week-day-title">${escapeAttr(n.title)}</div>
+          <div class="standup-week-day-text">${n.text ? escapeAttr(n.text) : '<span class="empty-hint">No notes</span>'}</div>
+        </div>
+      `).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+  wireStandupArchive();
+}
+
+function wireStandupArchive(){
+  document.querySelectorAll('#standup-archive-list [data-week-toggle]').forEach(head => {
+    head.addEventListener('click', (e) => {
+      if(e.target.closest('input, [data-week-delete]')) return;
+      const id = head.dataset.id;
+      if(standupArchiveExpanded.has(id)) standupArchiveExpanded.delete(id);
+      else standupArchiveExpanded.add(id);
+      renderStandupArchive();
+    });
+  });
+  document.querySelectorAll('#standup-archive-list .standup-week-label').forEach(inp => {
+    inp.addEventListener('click', (e) => e.stopPropagation());
+    inp.addEventListener('change', (e) => {
+      const id = e.target.dataset.id;
+      const w = state.standupArchive.find(x => x.id === id);
+      if(w){ w.label = e.target.value.trim() || w.label; persist(); }
+    });
+  });
+  document.querySelectorAll('#standup-archive-list [data-week-delete]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if(!confirm('Delete this archived week? This cannot be undone.')) return;
+      state.standupArchive = state.standupArchive.filter(w => w.id !== id);
+      persist();
+      renderStandupArchive();
+    });
+  });
+}
+
+document.getElementById('standup-archive-head').addEventListener('click', () => {
+  const list = document.getElementById('standup-archive-list');
+  const chevron = document.getElementById('archive-section-chevron');
+  const nowOpen = list.style.display === 'none';
+  list.style.display = nowOpen ? 'flex' : 'none';
+  chevron.textContent = nowOpen ? '▾' : '▸';
+});
+
 document.getElementById('standup-add').addEventListener('click', () => {
   const now = new Date();
   const label = now.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
-  state.standupNotes.unshift({ id: 'su' + Date.now(), title: label, text: '', createdAt: now.toISOString() });
+  const id = 'su' + Date.now();
+  state.standupNotes.unshift({ id, title: label, text: '', createdAt: now.toISOString() });
+  standupExpanded.add(id);
+  editingStandupId = id;
+  standupDrafts[id] = { title: label, text: '' };
   persist();
   renderStandup();
 });
 document.getElementById('standup-close').addEventListener('click', () => {
+  editingStandupId = null; // stop actively editing, but drafts stay intact — nothing is lost
   document.getElementById('standup-overlay').classList.remove('open');
 });
 document.getElementById('standup-overlay').addEventListener('click', (e) => {
-  if(e.target.id === 'standup-overlay') e.currentTarget.classList.remove('open');
+  if(e.target.id === 'standup-overlay'){
+    editingStandupId = null; // same — closing by backdrop click doesn't discard drafts
+    e.currentTarget.classList.remove('open');
+  }
 });
 
 // ---- check Linear for new tickets ----
@@ -1323,6 +1576,7 @@ function normalizeState(obj){
   if(!obj.extraTickets) obj.extraTickets = [];
   if(!obj.testAccounts) obj.testAccounts = [];
   if(!obj.standupNotes) obj.standupNotes = [];
+  if(!obj.standupArchive) obj.standupArchive = [];
   if(!obj.archivedTickets) obj.archivedTickets = {};
   defaultColumnOrder.forEach(k => { if(!obj.columnOrder.includes(k)) obj.columnOrder.push(k); });
   obj.boards.forEach(b => { if(typeof b.archived === 'undefined') b.archived = false; });
