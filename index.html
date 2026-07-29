@@ -156,6 +156,20 @@
   .ta-icon-btn:hover{color:var(--text);border-color:var(--accent);}
   .ta-add-row{padding:14px 20px;}
 
+  .standup-list{max-height:60vh;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;}
+  .standup-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:14px;}
+  .standup-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;}
+  .standup-title-input{
+    background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text);
+    font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;flex:1;padding:4px 2px;
+  }
+  .standup-title-input:focus{outline:none;border-bottom:1px solid var(--accent);}
+  .standup-textarea{
+    width:100%;min-height:120px;background:var(--panel);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;
+  }
+  .standup-textarea:focus{outline:none;border-color:var(--accent);}
+
   .report-wrap{display:flex;gap:28px;padding:22px 24px;flex-wrap:wrap;align-items:center;}
   .report-donut{flex-shrink:0;}
   .report-stats{flex:1;min-width:240px;display:flex;flex-direction:column;gap:11px;}
@@ -249,11 +263,11 @@
   .search::placeholder{color:var(--faint);}
 
   .board-table{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
-  .thead{display:grid;grid-template-columns:85px 1fr 115px 130px 80px;padding:12px 18px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);font-weight:600;}
+  .thead{display:grid;grid-template-columns:85px 1fr 115px 130px 80px 32px;padding:12px 18px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);font-weight:600;}
   .th-sort{cursor:pointer;user-select:none;display:flex;align-items:center;gap:3px;}
   .th-sort:hover{color:var(--text);}
   .th-sort #sort-arrow{color:var(--accent);}
-  .trow{display:grid;grid-template-columns:85px 1fr 115px 130px 80px;padding:12px 18px;border-bottom:1px solid var(--border);align-items:center;font-size:13px;}
+  .trow{display:grid;grid-template-columns:85px 1fr 115px 130px 80px 32px;padding:12px 18px;border-bottom:1px solid var(--border);align-items:center;font-size:13px;position:relative;}
   .trow:last-child{border-bottom:none;}
   .trow:hover{background:var(--panel-2);}
   .trow a.tid{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px;font-weight:600;text-decoration:none;}
@@ -288,6 +302,24 @@
   }
   .sprintcell{font-size:11px;color:var(--faint);}
 
+  .row-menu-wrap{position:relative;display:flex;justify-content:center;}
+  .row-menu-btn{
+    background:none;border:none;color:var(--faint);cursor:pointer;font-size:15px;
+    padding:2px 6px;border-radius:6px;line-height:1;
+  }
+  .row-menu-btn:hover{color:var(--text);background:var(--panel-2);}
+  .row-menu{
+    display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:40;
+    background:var(--panel);border:1px solid var(--border);border-radius:9px;
+    padding:5px;min-width:150px;box-shadow:0 10px 24px rgba(0,0,0,0.4);
+  }
+  .row-menu.open{display:block;}
+  .row-menu-item{
+    width:100%;background:none;border:none;color:var(--text);text-align:left;
+    padding:8px 10px;border-radius:7px;font-size:12px;cursor:pointer;
+  }
+  .row-menu-item:hover{background:var(--panel-2);}
+
   footer{margin-top:20px;color:var(--faint);font-size:11.5px;text-align:center;}
 
   @media(max-width:900px){
@@ -308,6 +340,7 @@
           <span class="bar"></span><span class="bar"></span><span class="bar"></span>
         </div>
         <div class="nav-menu" id="nav-menu">
+          <button class="nav-menu-item" id="menu-standup">📝 Standup Notes</button>
           <button class="nav-menu-item" id="menu-report">📊 Sprint Report</button>
           <button class="nav-menu-item" id="menu-activity">🕒 Activity Log</button>
           <button class="nav-menu-item" id="menu-accounts">🔑 Test Accounts</button>
@@ -332,6 +365,19 @@
       <button class="icon-btn linear-check-btn" id="linear-check-btn" title="Check Linear for new tickets assigned to you">🔍 Check Linear</button>
     </div>
   </header>
+
+  <div class="activity-overlay" id="standup-overlay">
+    <div class="activity-panel" style="max-width:700px;">
+      <div class="activity-head">
+        <h2>Standup Notes</h2>
+        <div class="activity-head-btns">
+          <button class="icon-btn" id="standup-add" title="Log a new day">＋ Add day</button>
+          <button class="icon-btn" id="standup-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="standup-list" id="standup-list"></div>
+    </div>
+  </div>
 
   <div class="activity-overlay" id="report-overlay">
     <div class="activity-panel" style="max-width:760px;">
@@ -406,8 +452,8 @@
   <div class="kanban" id="kanban"></div>
 
   <div class="filters">
-    <button class="filter-btn active" data-filter="all">All</button>
-    <button class="filter-btn" data-filter="qa_staging">QA / Staging</button>
+    <button class="filter-btn" data-filter="all">All</button>
+    <button class="filter-btn active" data-filter="qa_staging">QA / Staging</button>
     <button class="filter-btn" data-filter="testing">Testing</button>
     <button class="filter-btn" data-filter="passed">Passed</button>
     <button class="filter-btn" data-filter="failed">Failed</button>
@@ -415,6 +461,7 @@
     <button class="filter-btn" data-filter="recheck">For Rechecking</button>
     <button class="filter-btn" data-filter="done">Done</button>
     <button class="filter-btn" data-filter="unassigned">Unassigned</button>
+    <button class="filter-btn" data-filter="archived">Archived</button>
     <input class="search" id="search" placeholder="Search ticket or title…">
   </div>
 
@@ -425,6 +472,7 @@
       <div>Test status</div>
       <div>Assign to board</div>
       <div>Sprint</div>
+      <div></div>
     </div>
     <div id="rows"></div>
   </div>
@@ -524,6 +572,8 @@ function defaultState(){
     activity: [], // {ticketId, before, after, timestamp}
     extraTickets: [], // tickets discovered via "Check Linear" that aren't in baseTickets
     testAccounts: [], // {id, username, password, envName, envUrl}
+    standupNotes: [], // {id, title, text, createdAt}
+    archivedTickets: {}, // ticketId -> true (independent of board/kanban status)
   };
 }
 
@@ -540,6 +590,8 @@ function loadState(){
     if(!state.activity) state.activity = [];
     if(!state.extraTickets) state.extraTickets = [];
     if(!state.testAccounts) state.testAccounts = [];
+    if(!state.standupNotes) state.standupNotes = [];
+    if(!state.archivedTickets) state.archivedTickets = {};
     defaultColumnOrder.forEach(k => { if(!state.columnOrder.includes(k)) state.columnOrder.push(k); });
     state.boards.forEach(b => { if(typeof b.archived === 'undefined') b.archived = false; });
   }catch(e){}
@@ -755,6 +807,11 @@ document.getElementById('menu-accounts').addEventListener('click', () => {
   renderTestAccounts();
   document.getElementById('accounts-overlay').classList.add('open');
 });
+document.getElementById('menu-standup').addEventListener('click', () => {
+  document.getElementById('nav-menu').classList.remove('open');
+  renderStandup();
+  document.getElementById('standup-overlay').classList.add('open');
+});
 document.getElementById('report-close').addEventListener('click', () => {
   document.getElementById('report-overlay').classList.remove('open');
 });
@@ -843,6 +900,59 @@ document.getElementById('accounts-close').addEventListener('click', () => {
 });
 document.getElementById('accounts-overlay').addEventListener('click', (e) => {
   if(e.target.id === 'accounts-overlay') e.currentTarget.classList.remove('open');
+});
+
+// ---- standup notes ----
+function renderStandup(){
+  const list = document.getElementById('standup-list');
+  if(!state.standupNotes.length){
+    list.innerHTML = '<div class="activity-empty">No standup notes yet — click "＋ Add day" to log one.</div>';
+    return;
+  }
+  list.innerHTML = state.standupNotes.map(n => `
+    <div class="standup-card">
+      <div class="standup-card-head">
+        <input class="standup-title-input" data-id="${n.id}" data-field="title" value="${escapeAttr(n.title)}" placeholder="Day label">
+        <button class="ta-icon-btn" data-id="${n.id}" data-standup-delete title="Delete this day">🗑</button>
+      </div>
+      <textarea class="standup-textarea" data-id="${n.id}" data-field="text" placeholder="What did you work on, blockers, plans…">${escapeAttr(n.text)}</textarea>
+    </div>
+  `).join('');
+  wireStandupCards();
+}
+
+function wireStandupCards(){
+  document.querySelectorAll('#standup-list .standup-title-input, #standup-list .standup-textarea').forEach(el => {
+    el.addEventListener('change', (e) => {
+      const id = e.target.dataset.id;
+      const field = e.target.dataset.field;
+      const note = state.standupNotes.find(n => n.id === id);
+      if(note){ note[field] = e.target.value; persist(); }
+    });
+  });
+  document.querySelectorAll('#standup-list [data-standup-delete]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      if(!confirm('Delete this standup note?')) return;
+      state.standupNotes = state.standupNotes.filter(n => n.id !== id);
+      persist();
+      renderStandup();
+    });
+  });
+}
+
+document.getElementById('standup-add').addEventListener('click', () => {
+  const now = new Date();
+  const label = now.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+  state.standupNotes.unshift({ id: 'su' + Date.now(), title: label, text: '', createdAt: now.toISOString() });
+  persist();
+  renderStandup();
+});
+document.getElementById('standup-close').addEventListener('click', () => {
+  document.getElementById('standup-overlay').classList.remove('open');
+});
+document.getElementById('standup-overlay').addEventListener('click', (e) => {
+  if(e.target.id === 'standup-overlay') e.currentTarget.classList.remove('open');
 });
 
 // ---- check Linear for new tickets ----
@@ -1049,7 +1159,7 @@ function updateChips(){
 }
 
 // ---- ticket list ----
-let currentFilter = 'all';
+let currentFilter = 'qa_staging';
 let currentSearch = '';
 let ticketSortDir = 'asc';
 
@@ -1059,14 +1169,20 @@ function ticketQaStatus(t){
   return state.cardColumns[bId + "|" + t.id] || "qa_staging";
 }
 
+function isArchived(t){
+  return !!state.archivedTickets[t.id];
+}
+
 function currentList(){
   let list = getAllTickets();
   if(currentFilter === 'all'){
-    list = list.filter(t => ticketQaStatus(t) !== 'done');
+    // show everything, archived included
+  } else if(currentFilter === 'archived'){
+    list = list.filter(t => isArchived(t));
   } else if(currentFilter === 'unassigned'){
-    list = list.filter(t => ticketQaStatus(t) === null);
+    list = list.filter(t => !isArchived(t) && ticketQaStatus(t) === null);
   } else {
-    list = list.filter(t => ticketQaStatus(t) === currentFilter);
+    list = list.filter(t => !isArchived(t) && ticketQaStatus(t) === currentFilter);
   }
   if(currentSearch){
     const q = currentSearch.toLowerCase();
@@ -1091,9 +1207,12 @@ function renderList(list){
     const sp = sprints[t.sprint];
     const bId = state.assignments[t.id] || "";
     const colKey = bId ? (state.cardColumns[bId + "|" + t.id] || "qa_staging") : null;
-    const statusBadge = colKey
-      ? `<span class="badge ${colKey}"><span class="dotb"></span>${qaBadgeLabel[colKey]}</span>`
-      : `<span class="badge unassigned"><span class="dotb"></span>Unassigned</span>`;
+    const archived = isArchived(t);
+    const statusBadge = archived
+      ? `<span class="badge archived"><span class="dotb"></span>Archived</span>`
+      : colKey
+        ? `<span class="badge ${colKey}"><span class="dotb"></span>${qaBadgeLabel[colKey]}</span>`
+        : `<span class="badge unassigned"><span class="dotb"></span>Unassigned</span>`;
     const boardName = bId && getBoard(bId) ? getBoard(bId).name : null;
     const rowTitle = boardName ? `On board: ${boardName}` : 'Not assigned to any board';
 
@@ -1103,6 +1222,12 @@ function renderList(list){
       <div>${statusBadge}</div>
       <div><select class="assign-select" data-id="${t.id}">${boardOptionsHtml(bId)}</select></div>
       <div class="sprintcell">${sp.label}</div>
+      <div class="row-menu-wrap">
+        <button class="row-menu-btn" data-id="${t.id}" title="More options">⋮</button>
+        <div class="row-menu" data-id="${t.id}">
+          <button class="row-menu-item" data-archive-toggle data-id="${t.id}">${archived ? 'Unarchive' : 'Archive'} this ticket</button>
+        </div>
+      </div>
     </div>`;
   }).join('');
 
@@ -1128,7 +1253,36 @@ function renderList(list){
       renderList(currentList());
     });
   });
+
+  rows.querySelectorAll('.row-menu-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const menu = rows.querySelector(`.row-menu[data-id="${id}"]`);
+      const wasOpen = menu.classList.contains('open');
+      rows.querySelectorAll('.row-menu.open').forEach(m => m.classList.remove('open'));
+      if(!wasOpen) menu.classList.add('open');
+    });
+  });
+
+  rows.querySelectorAll('[data-archive-toggle]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if(state.archivedTickets[id]){
+        delete state.archivedTickets[id];
+      } else {
+        state.archivedTickets[id] = true;
+      }
+      persist();
+      renderList(currentList());
+    });
+  });
 }
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.row-menu.open').forEach(m => m.classList.remove('open'));
+});
 
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1168,6 +1322,8 @@ function normalizeState(obj){
   if(!obj.activity) obj.activity = [];
   if(!obj.extraTickets) obj.extraTickets = [];
   if(!obj.testAccounts) obj.testAccounts = [];
+  if(!obj.standupNotes) obj.standupNotes = [];
+  if(!obj.archivedTickets) obj.archivedTickets = {};
   defaultColumnOrder.forEach(k => { if(!obj.columnOrder.includes(k)) obj.columnOrder.push(k); });
   obj.boards.forEach(b => { if(typeof b.archived === 'undefined') b.archived = false; });
   return obj;
