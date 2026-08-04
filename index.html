@@ -251,7 +251,7 @@
   .kcol{
     background:var(--panel);border:1px solid var(--border);border-radius:14px;
     padding:10px;display:flex;flex-direction:column;gap:8px;
-    flex:0 0 208px;height:600px;
+    flex:0 0 208px;min-width:208px;max-width:208px;height:600px;
   }
   .kcol.dragover{background:var(--panel-3);border-color:var(--accent);}
   .kcol-head{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 8px;border-bottom:1px solid var(--border);margin-bottom:2px;flex-shrink:0;gap:6px;cursor:grab;}
@@ -271,7 +271,7 @@
   .kcol.collapsed .kcol-head .name{
     writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-size:11px;
   }
-  .kcol-scroll{overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px;flex:1;min-height:0;}
+  .kcol-scroll{overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px;flex:1;min-height:0;min-width:0;}
   .kcol-scroll::-webkit-scrollbar{width:6px;}
   .kcol-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px;}
   .kcol-empty{color:var(--faint);font-size:11.5px;text-align:center;padding:18px 4px;}
@@ -285,7 +285,7 @@
   .kcol[data-key="done"] .kcol-head .name{color:var(--accent);}
   .kcol[data-key="archived"] .kcol-head .name{color:var(--archived);}
 
-  .card{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 11px;cursor:grab;user-select:none;flex-shrink:0;height:98px;display:flex;flex-direction:column;}
+  .card{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 11px;cursor:grab;user-select:none;flex-shrink:0;height:98px;display:flex;flex-direction:column;min-width:0;}
   .card:active{cursor:grabbing;}
   .card.dragging{opacity:0.4;}
   .card .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:6px;}
@@ -295,6 +295,7 @@
   .card .ctitle{
     font-size:12.5px;line-height:1.35;color:var(--text);margin-bottom:6px;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex:1;
+    overflow-wrap:break-word;word-break:break-word;
   }
   .card .cmeta{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--faint);gap:6px;margin-top:auto;}
   .card .cmeta span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
