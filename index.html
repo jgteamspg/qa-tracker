@@ -145,6 +145,9 @@
     padding:7px 9px;border-radius:7px;font-size:12px;width:100%;font-family:'Inter',sans-serif;
   }
   .ta-input:focus{outline:none;border-color:var(--accent);}
+  .ta-copyclick{cursor:pointer;}
+  .ta-copyclick:not([readonly]){cursor:text;border-color:var(--accent);}
+  .ta-copyclick.ta-copied{background:var(--passed-dim);border-color:var(--passed);color:var(--passed);}
   .ta-pass-wrap{display:flex;align-items:center;gap:6px;}
   .ta-pass-wrap .ta-input{flex:1;}
   .ta-env-stack{display:flex;flex-direction:column;gap:5px;}
@@ -226,6 +229,23 @@
     border-radius:8px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;resize:none;overflow-y:auto;
   }
   .standup-textarea:focus{outline:none;border-color:var(--accent);}
+  .standup-editable{line-height:1.5;white-space:pre-wrap;}
+  .standup-editable:empty:before{content:attr(data-placeholder);color:var(--faint);}
+  .standup-editable ul{margin:4px 0 4px 18px;padding:0;}
+  .standup-editable li{margin-bottom:2px;}
+  .standup-toolbar{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+  .std-fmt-btn{
+    background:var(--panel-2);border:1px solid var(--border);color:var(--text);cursor:pointer;
+    width:28px;height:28px;border-radius:7px;font-size:12px;display:flex;align-items:center;justify-content:center;
+    position:relative;overflow:hidden;
+  }
+  .std-fmt-btn:hover{border-color:var(--accent);}
+  .std-color-btn{cursor:pointer;}
+  .std-color-input{
+    position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;
+  }
+  .standup-text-view ul{margin:6px 0 6px 18px;padding:0;}
+  .standup-text-view li{margin-bottom:3px;}
   .standup-edit-actions{display:flex;align-items:center;gap:10px;margin-top:10px;}
   .unsaved-hint{font-size:11px;color:var(--queue);flex:1;}
   .standup-cancel-btn{
@@ -333,7 +353,7 @@
   .kcol[data-key="done"] .kcol-head .name{color:var(--accent);}
   .kcol[data-key="archived"] .kcol-head .name{color:var(--archived);}
 
-  .card{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 11px;cursor:grab;user-select:none;flex-shrink:0;height:98px;display:flex;flex-direction:column;min-width:0;}
+  .card{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 11px;cursor:grab;user-select:none;flex-shrink:0;min-height:80px;display:flex;flex-direction:column;min-width:0;}
   .card:active{cursor:grabbing;}
   .card.dragging{opacity:0.4;}
   .card .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:6px;}
@@ -342,13 +362,24 @@
   .card .lstatus{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em;text-align:right;}
   .card .ctitle{
     font-size:12.5px;line-height:1.35;color:var(--text);margin-bottom:6px;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex:1;
     overflow-wrap:break-word;word-break:break-word;
   }
-  .card .cmeta{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--faint);gap:6px;margin-top:auto;}
+  .card .cmeta{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--faint);gap:6px;margin-top:6px;}
   .card .cmeta span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
   .filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+
+  .bulk-bar{
+    display:flex;align-items:center;gap:10px;background:var(--accent-dim);border:1px solid var(--accent);
+    border-radius:10px;padding:10px 14px;margin-bottom:14px;
+  }
+  .bulk-bar #bulk-count{font-size:12.5px;font-weight:600;color:var(--accent);flex-shrink:0;}
+  .bulk-bar .board-filter{margin-left:0;max-width:200px;}
+  #bulk-apply-btn{
+    background:var(--accent);border:none;color:#04181b;font-weight:700;cursor:pointer;
+    padding:8px 14px;border-radius:8px;font-size:12px;font-family:'Inter',sans-serif;
+  }
+  #bulk-apply-btn:hover{filter:brightness(1.08);}
   .filter-btn{background:var(--panel);border:1px solid var(--border);color:var(--muted);padding:8px 13px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500;}
   .filter-btn:hover{border-color:var(--accent);color:var(--text);}
   .filter-btn.active{background:var(--accent);border-color:var(--accent);color:#04181b;font-weight:700;}
@@ -360,11 +391,13 @@
   .search::placeholder{color:var(--faint);}
 
   .board-table{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
-  .thead{display:grid;grid-template-columns:85px 1fr 115px 130px 80px 32px;padding:12px 18px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);font-weight:600;}
+  .thead{display:grid;grid-template-columns:28px 85px 1fr 115px 130px 80px 32px;padding:12px 18px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);font-weight:600;}
+  .th-check{display:flex;align-items:center;}
+  .th-check input, .td-check input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;}
   .th-sort{cursor:pointer;user-select:none;display:flex;align-items:center;gap:3px;}
   .th-sort:hover{color:var(--text);}
   .th-sort #sort-arrow{color:var(--accent);}
-  .trow{display:grid;grid-template-columns:85px 1fr 115px 130px 80px 32px;padding:12px 18px;border-bottom:1px solid var(--border);align-items:center;font-size:13px;position:relative;}
+  .trow{display:grid;grid-template-columns:28px 85px 1fr 115px 130px 80px 32px;padding:12px 18px;border-bottom:1px solid var(--border);align-items:center;font-size:13px;position:relative;}
   .trow:last-child{border-bottom:none;}
   .trow:hover{background:var(--panel-2);}
   .trow a.tid{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px;font-weight:600;text-decoration:none;}
@@ -678,8 +711,16 @@
     <input class="search" id="search" placeholder="Search ticket or title…">
   </div>
 
+  <div class="bulk-bar" id="bulk-bar" style="display:none;">
+    <span id="bulk-count"></span>
+    <select class="board-filter" id="bulk-board-select"></select>
+    <button class="cloud-btn" id="bulk-apply-btn">Assign selected</button>
+    <button class="icon-btn" id="bulk-clear-btn">Clear selection</button>
+  </div>
+
   <div class="board-table">
     <div class="thead">
+      <div class="th-check"><input type="checkbox" id="select-all-checkbox" title="Select all visible"></div>
       <div class="th-sort" id="th-ticket-sort" title="Sort by ticket number">Ticket <span id="sort-arrow">↑</span></div>
       <div>Title</div>
       <div>Test status</div>
@@ -1107,9 +1148,9 @@ function renderTestAccounts(){
   }
   rows.innerHTML = state.testAccounts.map(a => `
     <div class="ta-row">
-      <input class="ta-input" data-id="${a.id}" data-field="username" value="${escapeAttr(a.username)}" placeholder="username">
+      <input class="ta-input ta-copyclick" data-id="${a.id}" data-field="username" value="${escapeAttr(a.username)}" placeholder="username" readonly title="Click to copy · double-click to edit">
       <div class="ta-pass-wrap">
-        <input class="ta-input" type="password" data-id="${a.id}" data-field="password" value="${escapeAttr(a.password)}" placeholder="password">
+        <input class="ta-input ta-copyclick" type="password" data-id="${a.id}" data-field="password" value="${escapeAttr(a.password)}" placeholder="password" readonly title="Click to copy · double-click to edit">
         <button class="ta-icon-btn ta-eye" data-id="${a.id}" title="Show/hide password">👁</button>
       </div>
       <div class="ta-env-stack">
@@ -1130,6 +1171,27 @@ function wireTestAccountRows(){
       const field = e.target.dataset.field;
       const row = state.testAccounts.find(r => r.id === id);
       if(row){ row[field] = e.target.value; persist(); }
+    });
+  });
+  document.querySelectorAll('.ta-copyclick').forEach(inp => {
+    inp.addEventListener('click', (e) => {
+      if(!inp.readOnly) return; // already in edit mode, let normal clicking/cursor placement happen
+      e.preventDefault();
+      navigator.clipboard.writeText(inp.value).then(() => {
+        inp.classList.add('ta-copied');
+        const original = inp.title;
+        inp.title = 'Copied!';
+        setTimeout(() => { inp.classList.remove('ta-copied'); inp.title = original; }, 900);
+      }).catch(() => {});
+      inp.blur();
+    });
+    inp.addEventListener('dblclick', () => {
+      inp.readOnly = false;
+      inp.focus();
+      inp.select();
+    });
+    inp.addEventListener('blur', () => {
+      inp.readOnly = true;
     });
   });
   document.querySelectorAll('.ta-eye').forEach(btn => {
@@ -1590,6 +1652,59 @@ function standupHasUnsaved(id){
   return d.title !== n.title || d.text !== n.text;
 }
 
+function looksLikeHtml(text){
+  return /<\/?[a-z][\s\S]*>/i.test(text || '');
+}
+function standupDisplayHtml(text){
+  if(!text) return '';
+  if(looksLikeHtml(text)) return text; // already rich HTML from the editor
+  return escapeAttr(text).replace(/\n/g, '<br>'); // legacy plain-text note, upgrade display only
+}
+
+let savedStandupRange = null;
+function saveStandupSelection(){
+  const sel = window.getSelection();
+  if(sel.rangeCount > 0 && !sel.getRangeAt(0).collapsed){
+    savedStandupRange = sel.getRangeAt(0).cloneRange();
+  }
+}
+function restoreStandupSelection(){
+  if(savedStandupRange){
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedStandupRange);
+  }
+}
+
+function syncStandupEditableToDraft(editable, id){
+  if(!standupDrafts[id]){
+    const n = state.standupNotes.find(x => x.id === id);
+    standupDrafts[id] = { title: n.title, text: n.text };
+  }
+  standupDrafts[id].text = editable.innerHTML;
+  const card = editable.closest('.standup-card');
+  const hint = card && card.querySelector('.unsaved-hint');
+  if(hint) hint.textContent = standupHasUnsaved(id) ? '● Unsaved changes' : '';
+}
+
+function checkStandupAutoBullet(editable){
+  const sel = window.getSelection();
+  if(!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if(!range.collapsed) return;
+  const node = range.startContainer;
+  if(node.nodeType !== Node.TEXT_NODE) return;
+  const before = node.textContent.slice(0, range.startOffset);
+  if(before !== '- ') return; // only auto-bullet when "- " is the very start of this line
+  node.textContent = node.textContent.slice(range.startOffset);
+  const newRange = document.createRange();
+  newRange.setStart(node, 0);
+  newRange.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
+  document.execCommand('insertUnorderedList');
+}
+
 // standupExpanded resets each time the page loads — cards start minimized by default every session
 const standupExpanded = new Set();
 
@@ -1613,7 +1728,15 @@ function renderStandup(){
           <input class="standup-title-input" data-id="${n.id}" value="${escapeAttr(displayTitle)}" placeholder="Day label">
           <button class="ta-icon-btn" data-standup-delete data-id="${n.id}" title="Delete this day">🗑</button>
         </div>
-        <textarea class="standup-textarea" data-id="${n.id}" placeholder="What did you work on, blockers, plans…">${escapeAttr(displayText)}</textarea>
+        <div class="standup-toolbar">
+          <button type="button" class="std-fmt-btn" data-cmd="bold" title="Bold"><b>B</b></button>
+          <button type="button" class="std-fmt-btn" data-cmd="italic" title="Italic"><i>I</i></button>
+          <button type="button" class="std-fmt-btn" data-cmd="insertUnorderedList" title="Bullet list">☰</button>
+          <label class="std-fmt-btn std-color-btn" title="Text color">A<input type="color" class="std-color-input" data-cmd="foreColor" data-id="${n.id}" value="#4FC3F7"></label>
+          <label class="std-fmt-btn std-color-btn" title="Highlight"><u>H</u><input type="color" class="std-color-input" data-cmd="hiliteColor" data-id="${n.id}" value="#FBBF24"></label>
+          <button type="button" class="std-fmt-btn" data-cmd="removeFormat" title="Clear formatting">✕</button>
+        </div>
+        <div class="standup-textarea standup-editable" contenteditable="true" data-id="${n.id}" data-placeholder="What did you work on, blockers, plans… (type &quot;- &quot; for a bullet)">${standupDisplayHtml(displayText)}</div>
         <div class="standup-edit-actions">
           <span class="unsaved-hint">${unsaved ? '● Unsaved changes' : ''}</span>
           <button class="standup-cancel-btn" data-id="${n.id}">Cancel</button>
@@ -1631,7 +1754,7 @@ function renderStandup(){
         </div>
         <button class="ta-icon-btn" data-standup-delete data-id="${n.id}" title="Delete this day">🗑</button>
       </div>
-      ${expanded ? `<div class="standup-text-view" data-standup-open data-id="${n.id}">${displayText ? escapeAttr(displayText) : '<span class="empty-hint">Click to add notes…</span>'}</div>` : ''}
+      ${expanded ? `<div class="standup-text-view" data-standup-open data-id="${n.id}">${displayText ? standupDisplayHtml(displayText) : '<span class="empty-hint">Click to add notes…</span>'}</div>` : ''}
     </div>`;
   }).join('');
   wireStandupCards();
@@ -1658,19 +1781,48 @@ function wireStandupCards(){
     });
   });
 
-  document.querySelectorAll('#standup-list .standup-title-input, #standup-list .standup-textarea').forEach(el => {
+  document.querySelectorAll('#standup-list .standup-title-input').forEach(el => {
     el.addEventListener('input', (e) => {
       const id = e.target.dataset.id;
-      const isTitle = e.target.classList.contains('standup-title-input');
       if(!standupDrafts[id]){
         const n = state.standupNotes.find(x => x.id === id);
         standupDrafts[id] = { title: n.title, text: n.text };
       }
-      standupDrafts[id][isTitle ? 'title' : 'text'] = e.target.value;
-      // update the unsaved hint live without a full re-render (keeps cursor position intact)
+      standupDrafts[id].title = e.target.value;
       const card = e.target.closest('.standup-card');
       const hint = card.querySelector('.unsaved-hint');
       if(hint) hint.textContent = standupHasUnsaved(id) ? '● Unsaved changes' : '';
+    });
+  });
+
+  document.querySelectorAll('#standup-list .standup-editable').forEach(editable => {
+    const id = editable.dataset.id;
+    editable.addEventListener('input', () => {
+      checkStandupAutoBullet(editable);
+      syncStandupEditableToDraft(editable, id);
+    });
+    editable.addEventListener('mouseup', saveStandupSelection);
+    editable.addEventListener('keyup', saveStandupSelection);
+  });
+
+  document.querySelectorAll('#standup-list .std-fmt-btn[data-cmd]').forEach(btn => {
+    btn.addEventListener('mousedown', (e) => e.preventDefault()); // keep focus/selection in the editable
+    btn.addEventListener('click', () => {
+      const editable = btn.closest('.standup-card').querySelector('.standup-editable');
+      editable.focus();
+      document.execCommand(btn.dataset.cmd, false, null);
+      syncStandupEditableToDraft(editable, editable.dataset.id);
+    });
+  });
+
+  document.querySelectorAll('#standup-list .std-color-input').forEach(inp => {
+    inp.addEventListener('mousedown', saveStandupSelection);
+    inp.addEventListener('change', (e) => {
+      const editable = inp.closest('.standup-card').querySelector('.standup-editable');
+      editable.focus();
+      restoreStandupSelection();
+      document.execCommand(inp.dataset.cmd, false, e.target.value);
+      syncStandupEditableToDraft(editable, editable.dataset.id);
     });
   });
 
@@ -1945,7 +2097,7 @@ function renderKanban(){
               <a class="tid" href="${t.url}" target="_blank" rel="noopener">${t.id}</a>
               <span class="lstatus">${t.linearStatus}</span>
             </div>
-            <div class="ctitle">${truncate(t.title, 66)}</div>
+            <div class="ctitle">${t.title}</div>
             <div class="cmeta"><span>${t.group}</span><span>${(state.ticketNotes[t.id] && state.ticketNotes[t.id].length) ? '💬 ' + state.ticketNotes[t.id].length + ' · ' : ''}${t.updated}</span></div>
           </div>
         `).join('') : '<div class="kcol-empty">No tickets</div>'}
@@ -2043,6 +2195,67 @@ function updateChips(){
 let currentFilter = 'qa_staging';
 let currentSearch = '';
 let currentBoardFilter = null; // null = not yet initialized; '' = All boards; otherwise a board id
+const selectedTicketIds = new Set();
+
+function updateBulkBar(){
+  const bar = document.getElementById('bulk-bar');
+  const count = selectedTicketIds.size;
+  if(count === 0){ bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  document.getElementById('bulk-count').textContent = count + ' selected';
+  const sel = document.getElementById('bulk-board-select');
+  sel.innerHTML = `<option value="">Choose a board…</option>` + activeBoards().map(b =>
+    `<option value="${b.id}">${escapeAttr(b.name)}</option>`
+  ).join('');
+}
+
+function updateSelectAllCheckbox(list){
+  const all = document.getElementById('select-all-checkbox');
+  if(!list.length){ all.checked = false; all.indeterminate = false; return; }
+  const selectedCount = list.filter(t => selectedTicketIds.has(t.id)).length;
+  all.checked = selectedCount === list.length;
+  all.indeterminate = selectedCount > 0 && selectedCount < list.length;
+}
+
+document.getElementById('select-all-checkbox').addEventListener('change', (e) => {
+  const list = currentList();
+  if(e.target.checked){
+    list.forEach(t => selectedTicketIds.add(t.id));
+  } else {
+    list.forEach(t => selectedTicketIds.delete(t.id));
+  }
+  updateBulkBar();
+  renderList(list);
+});
+
+document.getElementById('bulk-apply-btn').addEventListener('click', () => {
+  const boardId = document.getElementById('bulk-board-select').value;
+  if(!boardId){ alert('Pick a board first.'); return; }
+  if(!selectedTicketIds.size) return;
+  const board = getBoard(boardId);
+  const boardName = board ? board.name : '';
+  const ok = confirm(`Assign ${selectedTicketIds.size} ticket(s) to "${boardName}"?`);
+  if(!ok) return;
+  selectedTicketIds.forEach(id => {
+    const oldBoard = state.assignments[id];
+    const oldName = oldBoard && getBoard(oldBoard) ? getBoard(oldBoard).name : 'Unassigned';
+    if(oldName !== boardName) logActivity(id, oldName, boardName);
+    state.assignments[id] = boardId;
+    if(!state.cardColumns[boardId + "|" + id]) state.cardColumns[boardId + "|" + id] = "qa_staging";
+  });
+  selectedTicketIds.clear();
+  persist();
+  renderKanban();
+  updateChips();
+  updateBulkBar();
+  renderList(currentList());
+});
+
+document.getElementById('bulk-clear-btn').addEventListener('click', () => {
+  selectedTicketIds.clear();
+  updateBulkBar();
+  renderList(currentList());
+});
 let ticketSortDir = 'asc';
 
 function ticketQaStatus(t){
@@ -2100,8 +2313,10 @@ function renderList(list){
         : `<span class="badge unassigned"><span class="dotb"></span>Unassigned</span>`;
     const boardName = bId && getBoard(bId) ? getBoard(bId).name : null;
     const rowTitle = boardName ? `On board: ${boardName}` : 'Not assigned to any board';
+    const checked = selectedTicketIds.has(t.id) ? 'checked' : '';
 
     return `<div class="trow" title="${rowTitle}">
+      <div class="td-check"><input type="checkbox" class="row-select" data-id="${t.id}" ${checked}></div>
       <div><a class="tid" href="${t.url}" target="_blank" rel="noopener">${t.id}</a></div>
       <div class="title-cell">${t.title}<span class="grp">${t.group}</span></div>
       <div>${statusBadge}</div>
@@ -2115,6 +2330,17 @@ function renderList(list){
       </div>
     </div>`;
   }).join('');
+
+  rows.querySelectorAll('.row-select').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const id = e.target.dataset.id;
+      if(e.target.checked) selectedTicketIds.add(id);
+      else selectedTicketIds.delete(id);
+      updateBulkBar();
+      updateSelectAllCheckbox(list);
+    });
+  });
+  updateSelectAllCheckbox(list);
 
   rows.querySelectorAll('.assign-select').forEach(sel => {
     sel.addEventListener('change', (e) => {
