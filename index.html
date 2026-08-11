@@ -160,15 +160,33 @@
   .ta-add-row{padding:14px 20px;}
 
   .bug-thead{
-    display:grid;grid-template-columns:1.2fr 1.6fr 40px 40px;padding:10px 20px;
+    display:grid;grid-template-columns:32px 1.3fr 1.3fr 36px;padding:9px 20px;
     font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
-    border-bottom:1px solid var(--border);font-weight:600;
+    border-bottom:1px solid var(--border);font-weight:600;background:var(--panel-2);
   }
   .bug-row{
-    display:grid;grid-template-columns:1.2fr 1.6fr 40px 40px;gap:8px;
-    padding:10px 20px;border-bottom:1px solid var(--border);align-items:center;
+    display:grid;grid-template-columns:32px 1.3fr 1.3fr 36px;gap:8px;
+    padding:1px 20px;border-bottom:1px solid var(--border);align-items:center;min-height:38px;
   }
   .bug-row:last-child{border-bottom:none;}
+  .bug-row:nth-child(even){background:rgba(255,255,255,0.015);}
+  .bug-idx{font-size:11px;color:var(--faint);font-family:'JetBrains Mono',monospace;}
+  .bug-cell-input{
+    background:transparent;border:1px solid transparent;color:var(--text);
+    padding:6px 7px;border-radius:6px;font-size:12.5px;width:100%;font-family:'Inter',sans-serif;
+  }
+  .bug-cell-input:hover{border-color:var(--border);}
+  .bug-cell-input:focus{outline:none;border-color:var(--accent);background:var(--panel-2);}
+  .bug-link-cell{min-width:0;}
+  .bug-link-view{
+    color:var(--accent);font-size:12px;text-decoration:none;padding:6px 7px;border-radius:6px;
+    display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .bug-link-view:hover{background:var(--accent-dim);text-decoration:underline;}
+  .bug-link-empty{color:var(--faint);font-size:12px;cursor:pointer;padding:6px 7px;display:inline-block;font-style:italic;}
+  .bug-link-empty:hover{color:var(--accent);}
+  .bug-link-input{width:100%;}
+  .bug-hint{padding:10px 20px;font-size:11px;color:var(--faint);border-top:1px solid var(--border);}
 
   .td-header-titles{display:flex;flex-direction:column;gap:3px;min-width:0;}
   .td-link{font-size:12px;}
@@ -701,12 +719,13 @@
         </div>
       </div>
       <div class="bug-thead">
+        <div>#</div>
         <div>Bug name</div>
         <div>Link</div>
         <div></div>
-        <div></div>
       </div>
       <div id="bug-rows"></div>
+      <div class="bug-hint">Double-click a link to edit it</div>
     </div>
   </div>
 
@@ -1674,22 +1693,53 @@ document.getElementById('rock-detail-overlay').addEventListener('click', (e) => 
 });
 
 // ---- bug tickets ----
+function normalizeUrl(url){
+  if(!url) return '';
+  let u = url.trim();
+  if(u && !/^https?:\/\//i.test(u)) u = 'https://' + u;
+  return u;
+}
+
+function bugLinkLabel(url){
+  const full = normalizeUrl(url);
+  try{
+    const host = new URL(full).hostname.replace(/^www\./, '');
+    return host;
+  }catch(e){
+    return url.length > 30 ? url.slice(0, 28) + '…' : url;
+  }
+}
+
 function renderBugTickets(){
   const rows = document.getElementById('bug-rows');
   if(!state.bugTickets.length){
     rows.innerHTML = '<div class="activity-empty">No bugs logged yet — click "＋ Add bug" to start.</div>';
     return;
   }
-  rows.innerHTML = state.bugTickets.map(b => `
+  rows.innerHTML = state.bugTickets.map((b, i) => `
     <div class="bug-row">
-      <input class="ta-input" data-id="${b.id}" data-field="name" value="${escapeAttr(b.name)}" placeholder="Bug name">
-      <input class="ta-input" data-id="${b.id}" data-field="url" value="${escapeAttr(b.url)}" placeholder="https://...">
-      <button class="ta-icon-btn" data-bug-open data-id="${b.id}" title="Open link">↗</button>
+      <div class="bug-idx">${i + 1}</div>
+      <input class="bug-cell-input" data-id="${b.id}" data-field="name" value="${escapeAttr(b.name)}" placeholder="Bug name">
+      <div class="bug-link-cell">
+        ${b.url
+          ? `<a class="bug-link-view" data-id="${b.id}" href="${normalizeUrl(b.url)}" target="_blank" rel="noopener" title="${escapeAttr(b.url)} — double-click to edit">🔗 ${escapeAttr(bugLinkLabel(b.url))}</a>`
+          : `<span class="bug-link-empty" data-bug-link-edit data-id="${b.id}">+ Add link</span>`}
+        <input class="ta-input bug-link-input" style="display:none;" data-id="${b.id}" data-field="url" value="${escapeAttr(b.url)}" placeholder="https://...">
+      </div>
       <button class="ta-icon-btn" data-bug-delete data-id="${b.id}" title="Delete">🗑</button>
     </div>
   `).join('');
 
-  rows.querySelectorAll('.ta-input').forEach(inp => {
+  function enterLinkEdit(id){
+    const row = rows.querySelector(`.bug-row input.bug-link-input[data-id="${id}"]`).closest('.bug-row');
+    row.querySelector('.bug-link-view, .bug-link-empty').style.display = 'none';
+    const input = row.querySelector('.bug-link-input');
+    input.style.display = 'block';
+    input.focus();
+    input.select();
+  }
+
+  rows.querySelectorAll('.bug-cell-input').forEach(inp => {
     inp.addEventListener('change', (e) => {
       const id = e.target.dataset.id;
       const field = e.target.dataset.field;
@@ -1697,16 +1747,26 @@ function renderBugTickets(){
       if(b){ b[field] = e.target.value; persist(); }
     });
   });
-  rows.querySelectorAll('[data-bug-open]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const b = state.bugTickets.find(x => x.id === btn.dataset.id);
-      if(b && b.url){
-        let url = b.url.trim();
-        if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
-        window.open(url, '_blank', 'noopener');
-      }
+
+  rows.querySelectorAll('.bug-link-view').forEach(a => {
+    a.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      enterLinkEdit(a.dataset.id);
     });
   });
+  rows.querySelectorAll('[data-bug-link-edit]').forEach(span => {
+    span.addEventListener('click', () => enterLinkEdit(span.dataset.id));
+  });
+  rows.querySelectorAll('.bug-link-input').forEach(inp => {
+    inp.addEventListener('change', (e) => {
+      const id = e.target.dataset.id;
+      const b = state.bugTickets.find(x => x.id === id);
+      if(b){ b.url = e.target.value.trim(); persist(); }
+      renderBugTickets();
+    });
+    inp.addEventListener('blur', () => renderBugTickets());
+  });
+
   rows.querySelectorAll('[data-bug-delete]').forEach(btn => {
     btn.addEventListener('click', () => {
       if(!confirm('Delete this bug entry?')) return;
