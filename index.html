@@ -673,6 +673,14 @@
             </select>
           </div>
           <div class="td-field">
+            <label>Category</label>
+            <select id="td-category-select">
+              <option value="">None</option>
+              <option value="bug">🐛 Bug</option>
+              <option value="feature">✨ New Feature</option>
+            </select>
+          </div>
+          <div class="td-field">
             <label>Sprint</label>
             <div class="td-static" id="td-sprint"></div>
           </div>
@@ -688,6 +696,10 @@
             <label>Updated</label>
             <div class="td-static" id="td-updated"></div>
           </div>
+        </div>
+        <div class="td-notes-section">
+          <h3>Sprint History <span class="report-meta">status by board, over time</span></h3>
+          <div id="td-history-list"></div>
         </div>
         <div class="td-notes-section">
           <h3>Notes &amp; Comments</h3>
@@ -835,6 +847,7 @@
     <button class="filter-btn" data-filter="done">Done</button>
     <button class="filter-btn" data-filter="unassigned">Unassigned</button>
     <button class="filter-btn" data-filter="archived">Archived</button>
+    <button class="filter-btn" data-filter="not_done" title="Every non-Done, non-Archived ticket across every board">⏳ Not Done (All Sprints)</button>
     <select class="board-filter" id="board-filter"></select>
     <input class="search" id="search" placeholder="Search ticket or title…">
   </div>
@@ -959,6 +972,8 @@ function defaultState(){
     archivedTickets: {}, // ticketId -> true (independent of board/kanban status)
     ticketNotes: {}, // ticketId -> [{id, text, timestamp}]
     ticketPriority: {}, // ticketId -> 'urgent'|'high'|'medium'|'low'
+    ticketStatusHistory: {}, // ticketId -> [{id, boardId, boardName, status, timestamp}]
+    ticketCategory: {}, // ticketId -> 'bug'|'feature'
     rockQuarters: [{id: 'q3-2026', label: 'Q3 2026', range: 'Jul 1 – Sep 30, 2026', archived: false}],
     activeRockQuarterId: 'q3-2026',
     rockGoals: [
@@ -1009,6 +1024,8 @@ function loadState(){
     if(!state.archivedTickets) state.archivedTickets = {};
     if(!state.ticketNotes) state.ticketNotes = {};
     if(!state.ticketPriority) state.ticketPriority = {};
+    if(!state.ticketStatusHistory) state.ticketStatusHistory = {};
+    if(!state.ticketCategory) state.ticketCategory = {};
     if(!state.rockQuarters) state.rockQuarters = [{id: 'q3-2026', label: 'Q3 2026', range: 'Jul 1 – Sep 30, 2026', archived: false}];
     if(!state.activeRockQuarterId) state.activeRockQuarterId = state.rockQuarters[0].id;
     if(!state.rockGoals) state.rockGoals = [];
@@ -1039,6 +1056,19 @@ function fmtDateTime(iso){
 function logActivity(ticketId, before, after){
   state.activity.unshift({ticketId, before, after, timestamp: new Date().toISOString()});
   if(state.activity.length > 300) state.activity.length = 300; // keep it from growing forever
+}
+
+function logStatusHistory(ticketId, statusKey){
+  const board = getBoard(state.activeBoardId);
+  if(!state.ticketStatusHistory[ticketId]) state.ticketStatusHistory[ticketId] = [];
+  state.ticketStatusHistory[ticketId].unshift({
+    id: 'sh' + Date.now() + Math.random().toString(36).slice(2, 6),
+    boardId: state.activeBoardId,
+    boardName: board ? board.name : 'Unknown board',
+    status: statusKey,
+    timestamp: new Date().toISOString()
+  });
+  if(state.ticketStatusHistory[ticketId].length > 100) state.ticketStatusHistory[ticketId].length = 100;
 }
 
 function truncate(s, n){ return s.length > n ? s.slice(0, n-1) + '…' : s; }
@@ -1483,10 +1513,38 @@ function openTicketDetail(id){
   ).join('');
 
   document.getElementById('td-priority-select').value = state.ticketPriority[id] || '';
+  document.getElementById('td-category-select').value = state.ticketCategory[id] || '';
+  renderTicketStatusHistory(id);
 
   document.getElementById('td-comment-input').value = '';
   renderTicketComments(id);
   document.getElementById('td-overlay').classList.add('open');
+}
+
+function renderTicketStatusHistory(id){
+  const wrap = document.getElementById('td-history-list');
+  const history = state.ticketStatusHistory[id] || [];
+  if(!history.length){
+    wrap.innerHTML = '<div class="activity-empty">No status changes logged yet.</div>';
+    return;
+  }
+  wrap.innerHTML = history.map(h => `
+    <div class="td-comment">
+      <div class="td-comment-head">
+        <span class="td-comment-time">${fmtDateTime(h.timestamp)}</span>
+        <button class="td-comment-delete" data-hist-id="${h.id}" title="Delete entry">🗑</button>
+      </div>
+      <div class="td-comment-text"><b>${escapeAttr(h.boardName)}</b> → ${qaBadgeLabel[h.status] || h.status}</div>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('[data-hist-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(!confirm('Delete this history entry?')) return;
+      state.ticketStatusHistory[id] = (state.ticketStatusHistory[id] || []).filter(h => h.id !== btn.dataset.histId);
+      persist();
+      renderTicketStatusHistory(id);
+    });
+  });
 }
 
 function renderTicketComments(id){
@@ -1536,12 +1594,14 @@ document.getElementById('td-status-select').addEventListener('change', (e) => {
   const after = e.target.value;
   if(before !== after){
     logActivity(id, qaBadgeLabel[before], qaBadgeLabel[after]);
+    logStatusHistory(id, after);
   }
   state.cardColumns[bId + "|" + id] = after;
   persist();
   renderKanban();
   updateChips();
   renderList(currentList());
+  renderTicketStatusHistory(id);
 });
 
 document.getElementById('td-board-select').addEventListener('change', (e) => {
@@ -1578,6 +1638,19 @@ document.getElementById('td-priority-select').addEventListener('change', (e) => 
   }
   if(before !== after){
     logActivity(id, 'Priority: ' + before, 'Priority: ' + after);
+  }
+  persist();
+  renderKanban();
+  renderList(currentList());
+});
+
+document.getElementById('td-category-select').addEventListener('change', (e) => {
+  const id = currentDetailTicketId;
+  if(!id) return;
+  if(e.target.value){
+    state.ticketCategory[id] = e.target.value;
+  } else {
+    delete state.ticketCategory[id];
   }
   persist();
   renderKanban();
@@ -2555,10 +2628,12 @@ function renderKanban(){
       <div class="kcol-scroll">
         ${items.length ? items.map(t => {
           const pr = state.ticketPriority[t.id] || '';
+          const cat = state.ticketCategory[t.id] || '';
+          const catIcon = cat === 'bug' ? '🐛' : cat === 'feature' ? '✨' : '';
           return `
           <div class="card${pr ? ' priority-' + pr : ''}" draggable="true" data-id="${t.id}">
             <div class="top-row">
-              <a class="tid" href="${t.url}" target="_blank" rel="noopener">${t.id}</a>
+              <a class="tid" href="${t.url}" target="_blank" rel="noopener">${catIcon ? `<span title="${cat === 'bug' ? 'Bug' : 'New Feature'}">${catIcon}</span> ` : ''}${t.id}</a>
               <span class="lstatus">${t.linearStatus}</span>
             </div>
             ${pr === 'urgent' ? '<span class="urgent-badge">🔥 URGENT</span>' : ''}
@@ -2637,6 +2712,7 @@ function renderKanban(){
       const beforeKey = state.cardColumns[key] || "qa_staging";
       if(beforeKey !== targetKey){
         logActivity(data, qaBadgeLabel[beforeKey], qaBadgeLabel[targetKey]);
+        logStatusHistory(data, targetKey);
       }
       state.cardColumns[key] = targetKey;
       persist();
@@ -2742,10 +2818,13 @@ function currentList(){
     list = list.filter(t => isArchived(t));
   } else if(currentFilter === 'unassigned'){
     list = list.filter(t => !isArchived(t) && ticketQaStatus(t) === null);
+  } else if(currentFilter === 'not_done'){
+    // cross-sprint: every non-Done, non-Archived, assigned ticket, regardless of board
+    list = list.filter(t => !isArchived(t) && ticketQaStatus(t) !== null && ticketQaStatus(t) !== 'done');
   } else {
     list = list.filter(t => !isArchived(t) && ticketQaStatus(t) === currentFilter);
   }
-  if(currentBoardFilter){
+  if(currentBoardFilter && currentFilter !== 'not_done'){
     list = list.filter(t => state.assignments[t.id] === currentBoardFilter);
   }
   if(currentSearch){
@@ -2904,6 +2983,8 @@ function normalizeState(obj){
   if(!obj.archivedTickets) obj.archivedTickets = {};
   if(!obj.ticketNotes) obj.ticketNotes = {};
   if(!obj.ticketPriority) obj.ticketPriority = {};
+  if(!obj.ticketStatusHistory) obj.ticketStatusHistory = {};
+  if(!obj.ticketCategory) obj.ticketCategory = {};
   if(!obj.rockQuarters) obj.rockQuarters = [{id: 'q3-2026', label: 'Q3 2026', range: 'Jul 1 – Sep 30, 2026', archived: false}];
   if(!obj.activeRockQuarterId) obj.activeRockQuarterId = obj.rockQuarters[0].id;
   if(!obj.rockGoals) obj.rockGoals = [];
