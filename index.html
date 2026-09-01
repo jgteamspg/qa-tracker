@@ -395,6 +395,7 @@
   .chip.recheck .n{color:var(--recheck);}
   .chip.done .n{color:var(--accent);}
   .chip.archived .n{color:var(--archived);}
+  .chip.for_dev .n{color:var(--testing);}
   .chip.failed_qa_bugs .n{color:var(--issue);}
   .chip.in_dev .n{color:var(--queue);}
   .chip.fixed .n{color:var(--passed);}
@@ -468,6 +469,7 @@
   .kcol[data-key="recheck"] .kcol-head .name{color:var(--recheck);}
   .kcol[data-key="done"] .kcol-head .name{color:var(--accent);}
   .kcol[data-key="archived"] .kcol-head .name{color:var(--archived);}
+  .kcol[data-key="for_dev"] .kcol-head .name{color:var(--testing);}
   .kcol[data-key="failed_qa_bugs"] .kcol-head .name{color:var(--issue);}
   .kcol[data-key="in_dev"] .kcol-head .name{color:var(--queue);}
   .kcol[data-key="fixed"] .kcol-head .name{color:var(--passed);}
@@ -553,6 +555,8 @@
   .badge.archived .dotb{background:var(--archived);}
   .badge.unassigned{background:rgba(143,151,194,0.08);color:var(--faint);}
   .badge.unassigned .dotb{background:var(--faint);}
+  .badge.for_dev{background:var(--testing-dim);color:var(--testing);}
+  .badge.for_dev .dotb{background:var(--testing);}
   .badge.failed_qa_bugs{background:var(--issue-dim);color:var(--issue);}
   .badge.failed_qa_bugs .dotb{background:var(--issue);}
   .badge.in_dev{background:var(--queue-dim);color:var(--queue);}
@@ -742,7 +746,7 @@
         <span class="cloud-dot" id="cloud-dot"></span>
         <span class="cloud-status" id="cloud-status">—</span>
       </div>
-      <button class="icon-btn linear-check-btn" id="linear-check-btn" title="Check Linear for new tickets, and pull any QA-Failed tickets into DEV's Failed QA & Bugs column">🔍 Check Linear</button>
+      <button class="icon-btn linear-check-btn" id="linear-check-btn" title="Check Linear for new tickets (QA and For Dev) — they land in the ticket list below, you assign them to a board yourself">🔍 Check Linear</button>
     </div>
   </header>
 
@@ -981,6 +985,7 @@
       <div class="chip done"><div class="n" id="c-done">–</div><div class="l">Done</div></div>
     </span>
     <span id="dev-chips" style="display:none">
+      <div class="chip for_dev"><div class="n" id="c-for_dev">–</div><div class="l">For Dev</div></div>
       <div class="chip failed_qa_bugs"><div class="n" id="c-failed_qa_bugs">–</div><div class="l">Failed QA &amp; Bugs</div></div>
       <div class="chip in_dev"><div class="n" id="c-in_dev">–</div><div class="l">In Dev</div></div>
       <div class="chip fixed"><div class="n" id="c-fixed">–</div><div class="l">Fixed</div></div>
@@ -1023,6 +1028,7 @@
       <button class="filter-btn" data-filter="done">Done</button>
     </span>
     <span id="dev-filter-btns" style="display:none">
+      <button class="filter-btn" data-filter="for_dev">For Dev</button>
       <button class="filter-btn" data-filter="failed_qa_bugs">Failed QA &amp; Bugs</button>
       <button class="filter-btn" data-filter="in_dev">In Dev</button>
       <button class="filter-btn" data-filter="fixed">Fixed</button>
@@ -1123,6 +1129,7 @@ const qaBadgeLabel = {
 
 // ---- DEV workspace columns (independent board/kanban from QA) ----
 const devColumnDefs = {
+  for_dev:{label:"For Dev"},
   failed_qa_bugs:{label:"Failed QA & Bugs"},
   in_dev:{label:"In Dev"},
   fixed:{label:"Fixed"},
@@ -1131,7 +1138,7 @@ const devColumnDefs = {
 const defaultDevColumnOrder = Object.keys(devColumnDefs);
 
 const devBadgeLabel = {
-  failed_qa_bugs:"Failed QA & Bugs", in_dev:"In Dev", fixed:"Fixed", needs_phil:"Needs Phil"
+  for_dev:"For Dev", failed_qa_bugs:"Failed QA & Bugs", in_dev:"In Dev", fixed:"Fixed", needs_phil:"Needs Phil"
 };
 
 // ---- workspace helpers: QA and DEV each have their own boards/columns/assignments ----
@@ -1266,7 +1273,12 @@ function migrateWorkspaces(obj){
     if(!w.activeBoardId || !w.boards.find(b => b.id === w.activeBoardId)){
       w.activeBoardId = w.boards[0].id;
     }
-    defOrder.forEach(k => { if(!w.columnOrder.includes(k)) w.columnOrder.push(k); });
+    defOrder.forEach(k => {
+      if(w.columnOrder.includes(k)) return;
+      // new DEV columns that represent an "intake" step belong at the front, not tacked on the end
+      if(key === 'dev' && k === 'for_dev') w.columnOrder.unshift(k);
+      else w.columnOrder.push(k);
+    });
   });
   if(!obj.activeWorkspace || !obj.workspaces[obj.activeWorkspace]) obj.activeWorkspace = 'qa';
   return obj;
@@ -1440,7 +1452,7 @@ const columnColorVar = {
   with_questions: '--question', recheck: '--recheck', done: '--accent'
 };
 const devColumnColorVar = {
-  failed_qa_bugs: '--issue', in_dev: '--queue', fixed: '--passed', needs_phil: '--recheck'
+  for_dev: '--testing', failed_qa_bugs: '--issue', in_dev: '--queue', fixed: '--passed', needs_phil: '--recheck'
 };
 
 function ticketStatusCounts(){
@@ -2785,33 +2797,11 @@ document.getElementById('standup-overlay').addEventListener('click', (e) => {
   }
 });
 
-// ---- check Linear for new tickets ----
-function ticketStatusInWs(wsKey, t){
-  const w = state.workspaces[wsKey];
-  const bId = w.assignments[t.id];
-  if(!bId) return null;
-  return w.cardColumns[bId + "|" + t.id] || w.columnOrder[0];
-}
-
-// Pulls any ticket currently marked "Failed" on the QA side into the DEV
-// board's "Failed QA & Bugs" column, so Phil doesn't have to go looking for
-// them. Only touches tickets DEV hasn't already placed on a board — it won't
-// clobber something Phil has already moved to In Dev / Fixed / Needs Phil.
-function syncFailedQaToDev(){
-  const devWs = state.workspaces.dev;
-  const targetBoardId = devWs.activeBoardId;
-  if(!targetBoardId) return 0;
-  let synced = 0;
-  getAllTickets().forEach(t => {
-    if(ticketStatusInWs('qa', t) !== 'failed') return;
-    if(devWs.assignments[t.id]) return; // already on a DEV board somewhere — leave it alone
-    devWs.assignments[t.id] = targetBoardId;
-    devWs.cardColumns[targetBoardId + "|" + t.id] = 'failed_qa_bugs';
-    synced++;
-  });
-  return synced;
-}
-
+// ---- check Linear for new tickets (QA and "For Dev" alike) ----
+// Any ticket Linear knows about that we don't yet is added to the ticket
+// list at the bottom of the page. It is NOT auto-placed on any Kanban board —
+// tickets get assigned to a board/column by hand, same in QA and DEV, until
+// they're archived.
 async function checkLinearForNewTickets(){
   const btn = document.getElementById('linear-check-btn');
   const originalText = btn.textContent;
@@ -2837,17 +2827,9 @@ async function checkLinearForNewTickets(){
           url: iss.url
         });
       });
-    }
-
-    const syncedToDev = syncFailedQaToDev();
-
-    if(newOnes.length || syncedToDev){
       persist();
       refreshEverything();
-      const parts = [];
-      if(newOnes.length) parts.push(newOnes.length + ' new');
-      if(syncedToDev) parts.push(syncedToDev + ' → Dev (Failed QA & Bugs)');
-      btn.textContent = '✓ ' + parts.join(' · ');
+      btn.textContent = '✓ ' + newOnes.length + ' new';
     } else {
       btn.textContent = '✓ No new tickets';
     }
