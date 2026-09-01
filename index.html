@@ -747,8 +747,39 @@
         <span class="cloud-status" id="cloud-status">—</span>
       </div>
       <button class="icon-btn linear-check-btn" id="linear-check-btn" title="Check Linear for new tickets (QA and For Dev) — they land in the ticket list below, you assign them to a board yourself">🔍 Check Linear</button>
+      <button class="icon-btn linear-check-btn" id="addurl-btn" title="Paste a Linear issue URL to add it as a ticket">🔗 Add via URL</button>
     </div>
   </header>
+
+  <div class="activity-overlay" id="addurl-overlay">
+    <div class="activity-panel" style="max-width:480px;">
+      <div class="activity-head">
+        <h2>Add Ticket from Linear URL</h2>
+        <button class="icon-btn" id="addurl-close" title="Close">✕</button>
+      </div>
+      <div class="td-fields" style="grid-template-columns:1fr;margin-bottom:14px;">
+        <div class="td-field">
+          <label>Linear URL</label>
+          <input class="ta-input" id="addurl-input" placeholder="https://linear.app/teamspg/issue/SOS-1026/...">
+        </div>
+        <div class="td-field">
+          <label>Ticket ID</label>
+          <div class="td-static" id="addurl-id">—</div>
+        </div>
+        <div class="td-field">
+          <label>Title</label>
+          <input class="ta-input" id="addurl-title" placeholder="Ticket title">
+        </div>
+        <div class="td-field">
+          <label>Group</label>
+          <input class="ta-input" id="addurl-group" placeholder="Ungrouped" list="addurl-group-list">
+          <datalist id="addurl-group-list"></datalist>
+        </div>
+      </div>
+      <div id="addurl-error" style="color:var(--issue);font-size:12px;min-height:16px;"></div>
+      <button class="standup-save-btn" id="addurl-submit" style="margin-top:6px;" disabled>＋ Add ticket</button>
+    </div>
+  </div>
 
   <div class="activity-overlay" id="standup-overlay">
     <div class="activity-panel" style="max-width:700px;">
@@ -3075,6 +3106,95 @@ async function checkLinearForNewTickets(){
   }, 3000);
 }
 document.getElementById('linear-check-btn').addEventListener('click', checkLinearForNewTickets);
+
+// ---- add a single ticket by pasting its Linear issue URL ----
+// Pulls the ticket ID straight from the URL and turns the slug into a
+// starting-point title (Linear slugs are lowercase/truncated, so the
+// title is always left editable before saving).
+function parseLinearUrl(raw){
+  let url = String(raw || '').trim();
+  if(!url) return null;
+  url = url.split(/[?#]/)[0].replace(/\/+$/, '');
+  const m = url.match(/linear\.app\/[^/]+\/issue\/([A-Za-z]+-\d+)(?:\/([^/]+))?/i);
+  if(!m) return null;
+  const id = m[1].toUpperCase();
+  const slug = m[2] || '';
+  const words = slug.replace(/-/g, ' ').trim();
+  const title = words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
+  return { id, title, url };
+}
+
+function openAddUrlModal(){
+  document.getElementById('addurl-input').value = '';
+  document.getElementById('addurl-title').value = '';
+  document.getElementById('addurl-group').value = '';
+  document.getElementById('addurl-id').textContent = '—';
+  document.getElementById('addurl-error').textContent = '';
+  document.getElementById('addurl-submit').disabled = true;
+  const groups = [...new Set(getAllTickets().map(t => t.group).filter(Boolean))].sort();
+  document.getElementById('addurl-group-list').innerHTML = groups.map(g => `<option value="${escapeAttr(g)}">`).join('');
+  document.getElementById('addurl-overlay').classList.add('open');
+  document.getElementById('addurl-input').focus();
+}
+document.getElementById('addurl-btn').addEventListener('click', openAddUrlModal);
+document.getElementById('addurl-close').addEventListener('click', () => {
+  document.getElementById('addurl-overlay').classList.remove('open');
+});
+document.getElementById('addurl-overlay').addEventListener('click', (e) => {
+  if(e.target.id === 'addurl-overlay') e.currentTarget.classList.remove('open');
+});
+
+document.getElementById('addurl-input').addEventListener('input', (e) => {
+  const errEl = document.getElementById('addurl-error');
+  const idEl = document.getElementById('addurl-id');
+  const titleInput = document.getElementById('addurl-title');
+  const parsed = parseLinearUrl(e.target.value);
+  errEl.textContent = '';
+  if(!parsed){
+    idEl.textContent = '—';
+    document.getElementById('addurl-submit').disabled = true;
+    return;
+  }
+  idEl.textContent = parsed.id;
+  // only auto-fill the title while the user hasn't started typing their own
+  if(!titleInput.dataset.touched) titleInput.value = parsed.title;
+  if(getAllTickets().some(t => t.id === parsed.id)){
+    errEl.textContent = 'Ticket ' + parsed.id + ' is already on the list.';
+    document.getElementById('addurl-submit').disabled = true;
+  } else {
+    document.getElementById('addurl-submit').disabled = false;
+  }
+});
+document.getElementById('addurl-title').addEventListener('input', (e) => {
+  e.target.dataset.touched = '1';
+});
+
+document.getElementById('addurl-submit').addEventListener('click', () => {
+  const parsed = parseLinearUrl(document.getElementById('addurl-input').value);
+  const errEl = document.getElementById('addurl-error');
+  if(!parsed){
+    errEl.textContent = 'That doesn\'t look like a Linear issue URL.';
+    return;
+  }
+  if(getAllTickets().some(t => t.id === parsed.id)){
+    errEl.textContent = 'Ticket ' + parsed.id + ' is already on the list.';
+    return;
+  }
+  const title = document.getElementById('addurl-title').value.trim() || parsed.title || parsed.id;
+  const group = document.getElementById('addurl-group').value.trim() || 'Ungrouped';
+  state.extraTickets.push({
+    id: parsed.id,
+    title: title,
+    group: group,
+    linearStatus: 'Ready for Dev',
+    updated: new Date().toLocaleDateString('en-US', {month:'short', day:'numeric'}),
+    sprint: 'new',
+    url: parsed.url
+  });
+  persist();
+  refreshEverything();
+  document.getElementById('addurl-overlay').classList.remove('open');
+});
 
 function exportActivityLog(){
   if(!state.activity.length){
