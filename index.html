@@ -269,6 +269,25 @@
   .td-comment-delete:hover{color:var(--issue);}
 
   .rocks-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:14px;padding:18px 20px;max-height:70vh;overflow-y:auto;}
+
+  /* ---- Manage Columns modal ---- */
+  .col-rows{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding-bottom:4px;}
+  .col-row{display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:9px 10px;}
+  .col-swatches{display:flex;gap:5px;flex-shrink:0;}
+  .swatch{width:18px;height:18px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;}
+  .swatch.selected{border-color:var(--text);}
+  .col-label-input{flex:1;min-width:0;background:var(--panel-3);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;}
+  .col-label-input:focus{outline:none;border-color:var(--accent);}
+  .col-row-btns{display:flex;gap:4px;flex-shrink:0;}
+  .col-row-btns .icon-btn{padding:5px 8px;font-size:12px;}
+  .col-row-btns .icon-btn:disabled{opacity:0.3;cursor:default;}
+  .col-confirm-row{background:var(--issue-dim);border:1px solid var(--issue);border-radius:8px;padding:9px 12px;margin:-2px 0 2px;font-size:12.5px;color:var(--text);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .danger-btn{background:var(--issue);border:none;color:#2a0a0a;font-weight:700;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:12px;}
+  .col-add-row{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+  .col-add-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);margin-bottom:8px;}
+  .col-add-form{display:flex;align-items:center;gap:10px;}
+  .col-add-form .col-label-input{flex:1;}
+
   .rock-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:border-color .15s ease;}
   .rock-card:hover{border-color:var(--accent);}
   .rock-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px;}
@@ -513,6 +532,8 @@
   .filter-btn{background:var(--panel);border:1px solid var(--border);color:var(--muted);padding:8px 13px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500;}
   .filter-btn:hover{border-color:var(--accent);color:var(--text);}
   .filter-btn.active{background:var(--accent);border-color:var(--accent);color:#04181b;font-weight:700;}
+  .filter-clear-btn{background:none;border:1px solid transparent;color:var(--faint);padding:8px 10px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500;}
+  .filter-clear-btn:hover{color:var(--issue);border-color:var(--issue);}
   .board-filter{
     margin-left:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px;
     padding:8px 12px;color:var(--text);font-size:12.5px;max-width:180px;
@@ -535,6 +556,7 @@
   .trow a.tid:hover{text-decoration:underline;}
   .title-cell{color:var(--text);padding-right:14px;line-height:1.3;font-size:12.5px;}
   .title-cell .grp{display:block;color:var(--faint);font-size:10.5px;margin-top:2px;}
+  .dup-tag{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:5px;background:var(--issue-dim);color:var(--issue);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;vertical-align:middle;}
   .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;font-size:10.5px;font-weight:600;width:fit-content;}
   .badge .dotb{width:6px;height:6px;border-radius:50%;}
   .badge.qa_staging{background:var(--queue-dim);color:var(--queue);}
@@ -621,6 +643,11 @@
     .filters{gap:6px;}
     .search{min-width:0;width:100%;order:-1;flex-basis:100%;}
     .board-filter{margin-left:0;max-width:none;flex:1;}
+
+    .col-row{flex-wrap:wrap;}
+    .col-label-input{flex-basis:100%;order:1;}
+    .col-add-form{flex-wrap:wrap;}
+    .col-add-form .col-label-input{flex-basis:100%;}
     .filter-btn{padding:7px 11px;font-size:11.5px;}
 
     /* kanban becomes a swipeable, one-column-at-a-time strip */
@@ -747,39 +774,8 @@
         <span class="cloud-status" id="cloud-status">—</span>
       </div>
       <button class="icon-btn linear-check-btn" id="linear-check-btn" title="Check Linear for new tickets (QA and For Dev) — they land in the ticket list below, you assign them to a board yourself">🔍 Check Linear</button>
-      <button class="icon-btn linear-check-btn" id="addurl-btn" title="Paste a Linear issue URL to add it as a ticket">🔗 Add via URL</button>
     </div>
   </header>
-
-  <div class="activity-overlay" id="addurl-overlay">
-    <div class="activity-panel" style="max-width:480px;">
-      <div class="activity-head">
-        <h2>Add Ticket from Linear URL</h2>
-        <button class="icon-btn" id="addurl-close" title="Close">✕</button>
-      </div>
-      <div class="td-fields" style="grid-template-columns:1fr;margin-bottom:14px;">
-        <div class="td-field">
-          <label>Linear URL</label>
-          <input class="ta-input" id="addurl-input" placeholder="https://linear.app/teamspg/issue/SOS-1026/...">
-        </div>
-        <div class="td-field">
-          <label>Ticket ID</label>
-          <div class="td-static" id="addurl-id">—</div>
-        </div>
-        <div class="td-field">
-          <label>Title</label>
-          <input class="ta-input" id="addurl-title" placeholder="Ticket title">
-        </div>
-        <div class="td-field">
-          <label>Group</label>
-          <input class="ta-input" id="addurl-group" placeholder="Ungrouped" list="addurl-group-list">
-          <datalist id="addurl-group-list"></datalist>
-        </div>
-      </div>
-      <div id="addurl-error" style="color:var(--issue);font-size:12px;min-height:16px;"></div>
-      <button class="standup-save-btn" id="addurl-submit" style="margin-top:6px;" disabled>＋ Add ticket</button>
-    </div>
-  </div>
 
   <div class="activity-overlay" id="standup-overlay">
     <div class="activity-panel" style="max-width:700px;">
@@ -931,6 +927,28 @@
     </div>
   </div>
 
+  <div class="activity-overlay" id="columns-overlay">
+    <div class="activity-panel" style="max-width:560px;">
+      <div class="activity-head">
+        <h2 id="columns-modal-title">Manage Columns</h2>
+        <div class="activity-head-btns">
+          <button class="icon-btn" id="columns-modal-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="td-body">
+        <div class="col-rows" id="columns-modal-body"></div>
+        <div class="col-add-row">
+          <div class="col-add-label">Add a column</div>
+          <div class="col-add-form">
+            <div class="col-swatches" id="add-col-swatches"></div>
+            <input class="col-label-input" id="add-column-input" placeholder="Column name…">
+            <button class="cloud-btn" id="add-column-btn">＋ Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="activity-overlay" id="rock-detail-overlay">
     <div class="activity-panel" style="max-width:600px;">
       <div class="activity-head">
@@ -1004,29 +1022,12 @@
     </div>
   </div>
 
-  <div class="chips">
-    <div class="chip total"><div class="n" id="c-total">–</div><div class="l">Total</div></div>
-    <span id="qa-chips" style="display:contents">
-      <div class="chip qa_staging"><div class="n" id="c-qa_staging">–</div><div class="l">QA / Staging</div></div>
-      <div class="chip testing"><div class="n" id="c-testing">–</div><div class="l">Testing</div></div>
-      <div class="chip passed"><div class="n" id="c-passed">–</div><div class="l">Passed</div></div>
-      <div class="chip failed"><div class="n" id="c-failed">–</div><div class="l">Failed</div></div>
-      <div class="chip with_questions"><div class="n" id="c-with_questions">–</div><div class="l">Blocked/On-Hold</div></div>
-      <div class="chip recheck"><div class="n" id="c-recheck">–</div><div class="l">For Rechecking</div></div>
-      <div class="chip done"><div class="n" id="c-done">–</div><div class="l">Done</div></div>
-    </span>
-    <span id="dev-chips" style="display:none">
-      <div class="chip for_dev"><div class="n" id="c-for_dev">–</div><div class="l">For Dev</div></div>
-      <div class="chip failed_qa_bugs"><div class="n" id="c-failed_qa_bugs">–</div><div class="l">Failed QA &amp; Bugs</div></div>
-      <div class="chip in_dev"><div class="n" id="c-in_dev">–</div><div class="l">In Dev</div></div>
-      <div class="chip fixed"><div class="n" id="c-fixed">–</div><div class="l">Fixed</div></div>
-      <div class="chip needs_phil"><div class="n" id="c-needs_phil">–</div><div class="l">Needs Phil</div></div>
-    </span>
-  </div>
+  <div class="chips" id="chips-container"></div>
 
   <div class="board-label">
     <h2 id="board-title">Testing board</h2>
     <div class="board-label-right">
+      <button class="cloud-btn" id="manage-columns-btn">⚙ Columns</button>
       <button class="cloud-btn" id="sprint-results-btn">📊 Sprint Results</button>
       <div class="hint">Drag cards between columns · scroll within a column · saved in this browser</div>
     </div>
@@ -1049,25 +1050,12 @@
 
   <div class="filters">
     <button class="filter-btn" data-filter="all">All</button>
-    <span id="qa-filter-btns" style="display:contents">
-      <button class="filter-btn active" data-filter="qa_staging">QA / Staging</button>
-      <button class="filter-btn" data-filter="testing">Testing</button>
-      <button class="filter-btn" data-filter="passed">Passed</button>
-      <button class="filter-btn" data-filter="failed">Failed</button>
-      <button class="filter-btn" data-filter="with_questions">Blocked/On-Hold</button>
-      <button class="filter-btn" data-filter="recheck">For Rechecking</button>
-      <button class="filter-btn" data-filter="done">Done</button>
-    </span>
-    <span id="dev-filter-btns" style="display:none">
-      <button class="filter-btn" data-filter="for_dev">For Dev</button>
-      <button class="filter-btn" data-filter="failed_qa_bugs">Failed QA &amp; Bugs</button>
-      <button class="filter-btn" data-filter="in_dev">In Dev</button>
-      <button class="filter-btn" data-filter="fixed">Fixed</button>
-      <button class="filter-btn" data-filter="needs_phil">Needs Phil</button>
-    </span>
+    <span id="status-filter-btns" style="display:contents"></span>
     <button class="filter-btn" data-filter="unassigned">Unassigned</button>
     <button class="filter-btn" data-filter="archived">Archived</button>
     <button class="filter-btn" data-filter="not_done" title="Every non-Done, non-Archived ticket across every board">⏳ Not Done (All Sprints)</button>
+    <button class="filter-btn" data-filter="duplicates" title="Tickets that share an exact title with another ticket">⚠ Duplicates</button>
+    <button class="filter-clear-btn" id="clear-filters-btn" title="Reset all filters back to the default view">✕ Clear</button>
     <select class="board-filter" id="board-filter"></select>
     <input class="search" id="search" placeholder="Search ticket or title…">
   </div>
@@ -1375,42 +1363,58 @@ function getAllTickets(){
   return baseTickets.concat(state.extraTickets || []);
 }
 
-const columnDefs = {
-  qa_staging:{label:"QA / Staging"},
-  testing:{label:"Testing"},
-  passed:{label:"Passed"},
-  failed:{label:"Failed"},
-  with_questions:{label:"Blocked/On-Hold"},
-  recheck:{label:"For Rechecking"},
-  done:{label:"Done"},
+const DEFAULT_QA_COLUMN_META = {
+  qa_staging:{label:"QA / Staging", colorVar:"--queue"},
+  testing:{label:"Testing", colorVar:"--testing"},
+  passed:{label:"Passed", colorVar:"--passed"},
+  failed:{label:"Failed", colorVar:"--issue"},
+  with_questions:{label:"Blocked/On-Hold", colorVar:"--question"},
+  recheck:{label:"For Rechecking", colorVar:"--recheck"},
+  done:{label:"Done", colorVar:"--accent"},
 };
-const defaultColumnOrder = Object.keys(columnDefs);
-
-const qaBadgeLabel = {
-  qa_staging:"QA / Staging", testing:"Testing", passed:"Passed", failed:"Failed",
-  with_questions:"Blocked/On-Hold", recheck:"For Rechecking", done:"Done"
-};
+const defaultColumnOrder = Object.keys(DEFAULT_QA_COLUMN_META);
 
 // ---- DEV workspace columns (independent board/kanban from QA) ----
-const devColumnDefs = {
-  for_dev:{label:"For Dev"},
-  failed_qa_bugs:{label:"Failed QA & Bugs"},
-  in_dev:{label:"In Dev"},
-  fixed:{label:"Fixed"},
-  needs_phil:{label:"Needs Phil"},
+const DEFAULT_DEV_COLUMN_META = {
+  for_dev:{label:"For Dev", colorVar:"--testing"},
+  failed_qa_bugs:{label:"Failed QA & Bugs", colorVar:"--issue"},
+  in_dev:{label:"In Dev", colorVar:"--queue"},
+  fixed:{label:"Fixed", colorVar:"--passed"},
+  needs_phil:{label:"Needs Phil", colorVar:"--recheck"},
 };
-const defaultDevColumnOrder = Object.keys(devColumnDefs);
+const defaultDevColumnOrder = Object.keys(DEFAULT_DEV_COLUMN_META);
 
-const devBadgeLabel = {
-  for_dev:"For Dev", failed_qa_bugs:"Failed QA & Bugs", in_dev:"In Dev", fixed:"Fixed", needs_phil:"Needs Phil"
-};
+// Palette a person can pick from when adding or recoloring a column. Restricted
+// to CSS vars that already have a matching "-dim" companion (used for badge
+// backgrounds), so any custom column colors correctly with zero new CSS.
+const COLUMN_COLOR_PALETTE = [
+  {var:'--queue', name:'Amber'},
+  {var:'--testing', name:'Teal'},
+  {var:'--passed', name:'Green'},
+  {var:'--issue', name:'Red'},
+  {var:'--question', name:'Orange'},
+  {var:'--recheck', name:'Purple'},
+  {var:'--accent', name:'Cyan'},
+  {var:'--archived', name:'Gray'},
+];
 
 // ---- workspace helpers: QA and DEV each have their own boards/columns/assignments ----
 function ws(){ return state.workspaces[state.activeWorkspace]; }
-function activeColumnDefs(){ return state.activeWorkspace === 'dev' ? devColumnDefs : columnDefs; }
-function activeBadgeLabel(){ return state.activeWorkspace === 'dev' ? devBadgeLabel : qaBadgeLabel; }
-function activeColumnColorVar(){ return state.activeWorkspace === 'dev' ? devColumnColorVar : columnColorVar; }
-function wsDefaultColumnOrder(){ return state.activeWorkspace === 'dev' ? [...defaultDevColumnOrder] : [...defaultColumnOrder]; }
+function defaultColumnMeta(kind){
+  const src = kind === 'dev' ? DEFAULT_DEV_COLUMN_META : DEFAULT_QA_COLUMN_META;
+  const copy = {};
+  Object.keys(src).forEach(k => copy[k] = {...src[k]});
+  return copy;
+}
+// Column label/color are looked up per-workspace so both a built-in column
+// (QA / Staging, In Dev, ...) and a person's own custom column render the
+// same way — everything after this point reads through colMeta/colLabel/colColorVar.
+function colMeta(key){
+  const m = ws().columnMeta && ws().columnMeta[key];
+  return m || {label: key, colorVar: '--archived'};
+}
+function colLabel(key){ return colMeta(key).label; }
+function colColorVar(key){ return colMeta(key).colorVar; }
 function freshWorkspace(kind){
   const boardId = (kind === 'dev' ? 'devb' : 'b') + Date.now();
   return {
@@ -1420,6 +1424,7 @@ function freshWorkspace(kind){
     cardColumns: {},
     collapsedCols: {},
     columnOrder: kind === 'dev' ? [...defaultDevColumnOrder] : [...defaultColumnOrder],
+    columnMeta: defaultColumnMeta(kind),
   };
 }
 
@@ -1453,6 +1458,7 @@ function defaultState(){
         cardColumns, // "boardId|ticketId" -> columnKey
         collapsedCols: {},
         columnOrder: [...defaultColumnOrder],
+        columnMeta: defaultColumnMeta('qa'),
       },
       dev: freshWorkspace('dev'),
     },
@@ -1542,6 +1548,15 @@ function migrateWorkspaces(obj){
       // new DEV columns that represent an "intake" step belong at the front, not tacked on the end
       if(key === 'dev' && k === 'for_dev') w.columnOrder.unshift(k);
       else w.columnOrder.push(k);
+    });
+    // back-fill column metadata (label + color) for any key missing it —
+    // covers pre-existing saves from before columns were editable, and any
+    // brand-new default column keys added since the save was last written.
+    if(!w.columnMeta) w.columnMeta = {};
+    const defMeta = key === 'dev' ? DEFAULT_DEV_COLUMN_META : DEFAULT_QA_COLUMN_META;
+    w.columnOrder.forEach(k => {
+      if(w.columnMeta[k]) return;
+      w.columnMeta[k] = defMeta[k] ? {...defMeta[k]} : {label: k, colorVar: '--archived'};
     });
   });
   if(!obj.activeWorkspace || !obj.workspaces[obj.activeWorkspace]) obj.activeWorkspace = 'qa';
@@ -1711,14 +1726,6 @@ function renderActivity(){
 }
 
 // ---- sprint report ----
-const columnColorVar = {
-  qa_staging: '--queue', testing: '--testing', passed: '--passed', failed: '--issue',
-  with_questions: '--question', recheck: '--recheck', done: '--accent'
-};
-const devColumnColorVar = {
-  for_dev: '--testing', failed_qa_bugs: '--issue', in_dev: '--queue', fixed: '--passed', needs_phil: '--recheck'
-};
-
 function ticketStatusCounts(){
   const onBoard = ticketsOnActiveBoard();
   const counts = {};
@@ -1744,7 +1751,7 @@ function buildDonutSVG(counts, total, size){
     const dasharray = segLen + ' ' + (circumference - segLen);
     const dashoffset = -offsetAcc;
     offsetAcc += segLen;
-    return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(' + activeColumnColorVar()[key] + ')" ' +
+    return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(' + colColorVar(key) + ')" ' +
       'stroke-width="20" stroke-dasharray="' + dasharray + '" stroke-dashoffset="' + dashoffset + '" ' +
       'transform="rotate(-90 ' + cx + ' ' + cy + ')"/>';
   }).join('');
@@ -1771,7 +1778,7 @@ function renderSprintResults(){
     body.style.display = 'none';
     summaryLine.style.display = 'block';
     summaryLine.innerHTML = '<b>' + total + '</b> total · ' + ws().columnOrder.map(key =>
-      activeBadgeLabel()[key] + ': <b>' + (counts[key] || 0) + '</b>'
+      colLabel(key) + ': <b>' + (counts[key] || 0) + '</b>'
     ).join(' · ');
     document.getElementById('sr-minimize').textContent = '▸ Expand';
     return;
@@ -1791,9 +1798,9 @@ function renderSprintResults(){
     const c = counts[key] || 0;
     const pct = total ? Math.round((c / total) * 100) : 0;
     return '<div class="report-stat-row">' +
-      '<span class="rdot" style="background:var(' + activeColumnColorVar()[key] + ')"></span>' +
-      '<span class="rlabel">' + activeBadgeLabel()[key] + '</span>' +
-      '<span class="bar-track"><span class="bar-fill" style="width:' + pct + '%;background:var(' + activeColumnColorVar()[key] + ')"></span></span>' +
+      '<span class="rdot" style="background:var(' + colColorVar(key) + ')"></span>' +
+      '<span class="rlabel">' + colLabel(key) + '</span>' +
+      '<span class="bar-track"><span class="bar-fill" style="width:' + pct + '%;background:var(' + colColorVar(key) + ')"></span></span>' +
       '<span class="rcount">' + c + ' (' + pct + '%)</span>' +
       '</div>';
   }).join('');
@@ -1802,7 +1809,7 @@ function renderSprintResults(){
     const items = onBoard.filter(t => (ws().cardColumns[ws().activeBoardId + "|" + t.id] || ws().columnOrder[0]) === key);
     if(!items.length) return '';
     return '<div class="sr-status-group">' +
-      '<div class="sr-status-head" style="color:var(' + activeColumnColorVar()[key] + ')">' + activeBadgeLabel()[key] +
+      '<div class="sr-status-head" style="color:var(' + colColorVar(key) + ')">' + colLabel(key) +
       ' <span class="sr-status-count">' + items.length + '</span></div>' +
       items.map(t =>
         '<a class="sr-ticket-row" href="' + t.url + '" target="_blank" rel="noopener">' +
@@ -1825,7 +1832,7 @@ function copyReportAsText(){
   const lines = [boardName + ' — Sprint Results', 'Total: ' + total, ''];
   ws().columnOrder.forEach(key => {
     const items = onBoard.filter(t => (ws().cardColumns[ws().activeBoardId + "|" + t.id] || ws().columnOrder[0]) === key);
-    lines.push(activeBadgeLabel()[key] + ': ' + (counts[key] || 0));
+    lines.push(colLabel(key) + ': ' + (counts[key] || 0));
     items.forEach(t => lines.push('  - ' + t.id + ': ' + t.title));
   });
   const text = lines.join('\n');
@@ -2044,7 +2051,7 @@ function openTicketDetail(id){
   const bId = ws().assignments[id] || "";
   const currentStatus = bId ? (ws().cardColumns[bId + "|" + id] || ws().columnOrder[0]) : null;
   statusSel.innerHTML = ws().columnOrder.map(key =>
-    `<option value="${key}" ${key === currentStatus ? 'selected' : ''}>${activeBadgeLabel()[key]}</option>`
+    `<option value="${key}" ${key === currentStatus ? 'selected' : ''}>${colLabel(key)}</option>`
   ).join('');
   statusSel.disabled = !bId;
   statusSel.title = bId ? '' : 'Assign this ticket to a board first';
@@ -2076,7 +2083,7 @@ function renderTicketStatusHistory(id){
         <span class="td-comment-time">${fmtDateTime(h.timestamp)}</span>
         <button class="td-comment-delete" data-hist-id="${h.id}" title="Delete entry">🗑</button>
       </div>
-      <div class="td-comment-text"><b>${escapeAttr(h.boardName)}</b> → ${activeBadgeLabel()[h.status] || h.status}</div>
+      <div class="td-comment-text"><b>${escapeAttr(h.boardName)}</b> → ${colLabel(h.status) || h.status}</div>
     </div>
   `).join('');
   wrap.querySelectorAll('[data-hist-id]').forEach(btn => {
@@ -2135,7 +2142,7 @@ document.getElementById('td-status-select').addEventListener('change', (e) => {
   const before = ws().cardColumns[bId + "|" + id] || ws().columnOrder[0];
   const after = e.target.value;
   if(before !== after){
-    logActivity(id, activeBadgeLabel()[before], activeBadgeLabel()[after]);
+    logActivity(id, colLabel(before), colLabel(after));
     logStatusHistory(id, after);
   }
   ws().cardColumns[bId + "|" + id] = after;
@@ -3107,95 +3114,6 @@ async function checkLinearForNewTickets(){
 }
 document.getElementById('linear-check-btn').addEventListener('click', checkLinearForNewTickets);
 
-// ---- add a single ticket by pasting its Linear issue URL ----
-// Pulls the ticket ID straight from the URL and turns the slug into a
-// starting-point title (Linear slugs are lowercase/truncated, so the
-// title is always left editable before saving).
-function parseLinearUrl(raw){
-  let url = String(raw || '').trim();
-  if(!url) return null;
-  url = url.split(/[?#]/)[0].replace(/\/+$/, '');
-  const m = url.match(/linear\.app\/[^/]+\/issue\/([A-Za-z]+-\d+)(?:\/([^/]+))?/i);
-  if(!m) return null;
-  const id = m[1].toUpperCase();
-  const slug = m[2] || '';
-  const words = slug.replace(/-/g, ' ').trim();
-  const title = words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
-  return { id, title, url };
-}
-
-function openAddUrlModal(){
-  document.getElementById('addurl-input').value = '';
-  document.getElementById('addurl-title').value = '';
-  document.getElementById('addurl-group').value = '';
-  document.getElementById('addurl-id').textContent = '—';
-  document.getElementById('addurl-error').textContent = '';
-  document.getElementById('addurl-submit').disabled = true;
-  const groups = [...new Set(getAllTickets().map(t => t.group).filter(Boolean))].sort();
-  document.getElementById('addurl-group-list').innerHTML = groups.map(g => `<option value="${escapeAttr(g)}">`).join('');
-  document.getElementById('addurl-overlay').classList.add('open');
-  document.getElementById('addurl-input').focus();
-}
-document.getElementById('addurl-btn').addEventListener('click', openAddUrlModal);
-document.getElementById('addurl-close').addEventListener('click', () => {
-  document.getElementById('addurl-overlay').classList.remove('open');
-});
-document.getElementById('addurl-overlay').addEventListener('click', (e) => {
-  if(e.target.id === 'addurl-overlay') e.currentTarget.classList.remove('open');
-});
-
-document.getElementById('addurl-input').addEventListener('input', (e) => {
-  const errEl = document.getElementById('addurl-error');
-  const idEl = document.getElementById('addurl-id');
-  const titleInput = document.getElementById('addurl-title');
-  const parsed = parseLinearUrl(e.target.value);
-  errEl.textContent = '';
-  if(!parsed){
-    idEl.textContent = '—';
-    document.getElementById('addurl-submit').disabled = true;
-    return;
-  }
-  idEl.textContent = parsed.id;
-  // only auto-fill the title while the user hasn't started typing their own
-  if(!titleInput.dataset.touched) titleInput.value = parsed.title;
-  if(getAllTickets().some(t => t.id === parsed.id)){
-    errEl.textContent = 'Ticket ' + parsed.id + ' is already on the list.';
-    document.getElementById('addurl-submit').disabled = true;
-  } else {
-    document.getElementById('addurl-submit').disabled = false;
-  }
-});
-document.getElementById('addurl-title').addEventListener('input', (e) => {
-  e.target.dataset.touched = '1';
-});
-
-document.getElementById('addurl-submit').addEventListener('click', () => {
-  const parsed = parseLinearUrl(document.getElementById('addurl-input').value);
-  const errEl = document.getElementById('addurl-error');
-  if(!parsed){
-    errEl.textContent = 'That doesn\'t look like a Linear issue URL.';
-    return;
-  }
-  if(getAllTickets().some(t => t.id === parsed.id)){
-    errEl.textContent = 'Ticket ' + parsed.id + ' is already on the list.';
-    return;
-  }
-  const title = document.getElementById('addurl-title').value.trim() || parsed.title || parsed.id;
-  const group = document.getElementById('addurl-group').value.trim() || 'Ungrouped';
-  state.extraTickets.push({
-    id: parsed.id,
-    title: title,
-    group: group,
-    linearStatus: 'Ready for Dev',
-    updated: new Date().toLocaleDateString('en-US', {month:'short', day:'numeric'}),
-    sprint: 'new',
-    url: parsed.url
-  });
-  persist();
-  refreshEverything();
-  document.getElementById('addurl-overlay').classList.remove('open');
-});
-
 function exportActivityLog(){
   if(!state.activity.length){
     alert('No activity to export yet.');
@@ -3237,12 +3155,26 @@ function ticketsOnActiveBoard(){
 }
 
 function orderedColumns(){
-  return ws().columnOrder.map(key => ({key, label: activeColumnDefs()[key].label}));
+  return ws().columnOrder.map(key => ({key, label: colLabel(key)}));
 }
 
 function ticketSortKey(id){
   const n = parseInt(id.replace(/\D/g, ''), 10);
   return isNaN(n) ? 0 : n;
+}
+
+// Tickets whose title exactly matches (case/whitespace-insensitive) another
+// ticket's title are flagged so duplicates that slipped in from a Linear
+// sync are easy to spot and track down.
+function getDuplicateTicketIds(){
+  const byTitle = {};
+  getAllTickets().forEach(t => {
+    const key = t.title.trim().toLowerCase();
+    (byTitle[key] || (byTitle[key] = [])).push(t.id);
+  });
+  const dupIds = new Set();
+  Object.values(byTitle).forEach(ids => { if(ids.length > 1) ids.forEach(id => dupIds.add(id)); });
+  return dupIds;
 }
 
 function renderKanban(){
@@ -3256,7 +3188,7 @@ function renderKanban(){
     return `<div class="kcol ${collapsed ? 'collapsed' : ''}" data-key="${col.key}">
       <div class="kcol-head" draggable="true" title="Drag to reorder columns">
         <span class="drag-handle">⠿</span>
-        <span class="name">${col.label}</span>
+        <span class="name" style="color:var(${colColorVar(col.key)})">${escapeAttr(col.label)}</span>
         <span class="count">${items.length}</span>
         <button class="collapse-btn" data-key="${col.key}" title="${collapsed ? 'Expand' : 'Collapse'} column">${collapsed ? '▸' : '▾'}</button>
       </div>
@@ -3346,7 +3278,7 @@ function renderKanban(){
       const key = ws().activeBoardId + "|" + data;
       const beforeKey = ws().cardColumns[key] || ws().columnOrder[0];
       if(beforeKey !== targetKey){
-        logActivity(data, activeBadgeLabel()[beforeKey], activeBadgeLabel()[targetKey]);
+        logActivity(data, colLabel(beforeKey), colLabel(targetKey));
         logStatusHistory(data, targetKey);
       }
       ws().cardColumns[key] = targetKey;
@@ -3360,12 +3292,21 @@ function renderKanban(){
 
 function updateChips(){
   const onBoard = ticketsOnActiveBoard();
-  document.getElementById('c-total').textContent = onBoard.length;
-  ws().columnOrder.forEach(key => {
-    document.getElementById('c-' + key).textContent =
-      onBoard.filter(t => (ws().cardColumns[ws().activeBoardId + "|" + t.id] || ws().columnOrder[0]) === key).length;
-  });
+  const countFor = key => onBoard.filter(t => (ws().cardColumns[ws().activeBoardId + "|" + t.id] || ws().columnOrder[0]) === key).length;
+  const container = document.getElementById('chips-container');
+  container.innerHTML = `<div class="chip total"><div class="n">${onBoard.length}</div><div class="l">Total</div></div>` +
+    ws().columnOrder.map(key => {
+      const cVar = colColorVar(key);
+      return `<div class="chip"><div class="n" style="color:var(${cVar})">${countFor(key)}</div><div class="l">${escapeAttr(colLabel(key))}</div></div>`;
+    }).join('');
   if(typeof sprintResultsOpen !== 'undefined' && sprintResultsOpen) renderSprintResults();
+}
+
+function renderFilterButtons(){
+  const container = document.getElementById('status-filter-btns');
+  container.innerHTML = ws().columnOrder.map(key =>
+    `<button class="filter-btn${currentFilter === key ? ' active' : ''}" data-filter="${key}">${escapeAttr(colLabel(key))}</button>`
+  ).join('');
 }
 
 // ---- ticket list ----
@@ -3456,10 +3397,13 @@ function currentList(){
   } else if(currentFilter === 'not_done'){
     // cross-sprint: every non-Done, non-Archived, assigned ticket, regardless of board
     list = list.filter(t => !isArchived(t) && ticketQaStatus(t) !== null && ticketQaStatus(t) !== 'done');
+  } else if(currentFilter === 'duplicates'){
+    const dupIds = getDuplicateTicketIds();
+    list = list.filter(t => !isArchived(t) && dupIds.has(t.id));
   } else {
     list = list.filter(t => !isArchived(t) && ticketQaStatus(t) === currentFilter);
   }
-  if(currentBoardFilter && currentFilter !== 'not_done'){
+  if(currentBoardFilter && currentFilter !== 'not_done' && currentFilter !== 'duplicates'){
     list = list.filter(t => ws().assignments[t.id] === currentBoardFilter);
   }
   if(currentSearch){
@@ -3481,24 +3425,27 @@ function boardOptionsHtml(selectedId){
 
 function renderList(list){
   const rows = document.getElementById('rows');
+  const dupIds = getDuplicateTicketIds();
   rows.innerHTML = list.map(t => {
     const sp = sprints[t.sprint];
     const bId = ws().assignments[t.id] || "";
     const colKey = bId ? (ws().cardColumns[bId + "|" + t.id] || ws().columnOrder[0]) : null;
     const archived = isArchived(t);
+    const cVar = colKey ? colColorVar(colKey) : null;
     const statusBadge = archived
       ? `<span class="badge archived"><span class="dotb"></span>Archived</span>`
       : colKey
-        ? `<span class="badge ${colKey}"><span class="dotb"></span>${activeBadgeLabel()[colKey]}</span>`
+        ? `<span class="badge" style="background:var(${cVar}-dim);color:var(${cVar})"><span class="dotb" style="background:var(${cVar})"></span>${escapeAttr(colLabel(colKey))}</span>`
         : `<span class="badge unassigned"><span class="dotb"></span>Unassigned</span>`;
     const boardName = bId && getBoard(bId) ? getBoard(bId).name : null;
     const rowTitle = boardName ? `On board: ${boardName}` : 'Not assigned to any board';
     const checked = selectedTicketIds.has(t.id) ? 'checked' : '';
+    const dupTag = dupIds.has(t.id) ? `<span class="dup-tag" title="Another ticket has the exact same title">⚠ Duplicate</span>` : '';
 
     return `<div class="trow" title="${rowTitle}">
       <div class="td-check"><input type="checkbox" class="row-select" data-id="${t.id}" ${checked}></div>
       <div><a class="tid" href="${t.url}" target="_blank" rel="noopener">${t.id}</a></div>
-      <div class="title-cell">${t.title}<span class="grp">${t.group}</span></div>
+      <div class="title-cell">${t.title}${dupTag}<span class="grp">${t.group}</span></div>
       <div>${statusBadge}</div>
       <div><select class="assign-select" data-id="${t.id}">${boardOptionsHtml(bId)}</select></div>
       <div class="sprintcell">${sp.label}</div>
@@ -3575,13 +3522,24 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.row-menu.open').forEach(m => m.classList.remove('open'));
 });
 
-document.querySelectorAll('.filter-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentFilter = btn.dataset.filter;
-    renderList(currentList());
-  });
+document.querySelector('.filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.filter-btn');
+  if(!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = btn.dataset.filter;
+  renderList(currentList());
+});
+
+document.getElementById('clear-filters-btn').addEventListener('click', () => {
+  currentFilter = 'all';
+  currentBoardFilter = '';
+  currentSearch = '';
+  document.getElementById('search').value = '';
+  const boardSel = document.getElementById('board-filter');
+  if(boardSel) boardSel.value = '';
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
+  renderList(currentList());
 });
 
 document.getElementById('search').addEventListener('input', e => {
@@ -3632,6 +3590,7 @@ function normalizeState(obj){
 function refreshEverything(){
   populateBoardSelect();
   populateBoardFilterSelect();
+  renderFilterButtons();
   updateChips();
   renderKanban();
   renderList(currentList());
@@ -3647,10 +3606,6 @@ function applyWorkspaceUI(){
   });
   document.getElementById('app-title').textContent = isDev ? 'DEV Tracker' : 'QA Tracker';
   document.title = (isDev ? 'DEV Tracker' : 'QA Tracker') + ' — TeamSPG';
-  document.getElementById('qa-chips').style.display = isDev ? 'none' : 'contents';
-  document.getElementById('dev-chips').style.display = isDev ? 'contents' : 'none';
-  document.getElementById('qa-filter-btns').style.display = isDev ? 'none' : 'contents';
-  document.getElementById('dev-filter-btns').style.display = isDev ? 'contents' : 'none';
 }
 
 function switchWorkspace(key){
@@ -3664,9 +3619,6 @@ function switchWorkspace(key){
   selectedTicketIds.clear();
   updateBulkBar();
   applyWorkspaceUI();
-  document.querySelectorAll('.filter-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.filter === currentFilter);
-  });
   persist();
   refreshEverything();
 }
@@ -3752,6 +3704,164 @@ async function pushToCloud(){
 }
 
 // ---- init ----
+// ---- Manage Columns modal ----
+let confirmDeleteColKey = null;
+let newColumnColor = COLUMN_COLOR_PALETTE[0].var;
+
+function countCardsInColumn(key){
+  const w = ws();
+  return Object.keys(w.cardColumns).filter(k => w.cardColumns[k] === key).length;
+}
+
+function renderColumnsModal(){
+  document.getElementById('columns-modal-title').textContent =
+    'Manage Columns — ' + (state.activeWorkspace === 'dev' ? 'DEV Tracker' : 'QA Tracker');
+  const order = ws().columnOrder;
+  const body = document.getElementById('columns-modal-body');
+
+  body.innerHTML = order.map((key, idx) => {
+    const meta = colMeta(key);
+    const count = countCardsInColumn(key);
+    const fallbackKey = order.find(k => k !== key);
+    let rowHtml = `
+      <div class="col-row">
+        <div class="col-swatches">
+          ${COLUMN_COLOR_PALETTE.map(c => `<button class="swatch${c.var === meta.colorVar ? ' selected' : ''}" data-key="${key}" data-color="${c.var}" style="background:var(${c.var})" title="${c.name}"></button>`).join('')}
+        </div>
+        <input class="col-label-input" data-key="${key}" value="${escapeAttr(meta.label)}">
+        <div class="col-row-btns">
+          <button class="icon-btn col-move-btn" data-key="${key}" data-dir="-1" ${idx === 0 ? 'disabled' : ''} title="Move left">↑</button>
+          <button class="icon-btn col-move-btn" data-key="${key}" data-dir="1" ${idx === order.length - 1 ? 'disabled' : ''} title="Move right">↓</button>
+          <button class="icon-btn col-delete-btn" data-key="${key}" ${order.length <= 1 ? 'disabled title="You need at least one column"' : 'title="Delete column"'}>🗑</button>
+        </div>
+      </div>`;
+    if(confirmDeleteColKey === key){
+      const moveNote = count
+        ? `${count} ticket${count === 1 ? '' : 's'} currently in this column will move to "<b>${escapeAttr(colLabel(fallbackKey))}</b>".`
+        : 'No tickets are currently in this column.';
+      rowHtml += `<div class="col-confirm-row">
+        <span>Delete "<b>${escapeAttr(meta.label)}</b>"? ${moveNote}</span>
+        <button class="danger-btn col-confirm-delete-btn" data-key="${key}">Yes, delete it</button>
+        <button class="icon-btn col-cancel-delete-btn">Cancel</button>
+      </div>`;
+    }
+    return rowHtml;
+  }).join('');
+
+  body.querySelectorAll('.swatch').forEach(btn => {
+    btn.addEventListener('click', () => recolorColumn(btn.dataset.key, btn.dataset.color));
+  });
+  body.querySelectorAll('.col-label-input').forEach(inp => {
+    inp.addEventListener('change', () => renameColumn(inp.dataset.key, inp.value));
+  });
+  body.querySelectorAll('.col-move-btn').forEach(btn => {
+    btn.addEventListener('click', () => moveColumn(btn.dataset.key, parseInt(btn.dataset.dir, 10)));
+  });
+  body.querySelectorAll('.col-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(btn.disabled) return;
+      confirmDeleteColKey = btn.dataset.key;
+      renderColumnsModal();
+    });
+  });
+  body.querySelectorAll('.col-confirm-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteColumn(btn.dataset.key));
+  });
+  body.querySelectorAll('.col-cancel-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => { confirmDeleteColKey = null; renderColumnsModal(); });
+  });
+
+  const addSwatchWrap = document.getElementById('add-col-swatches');
+  addSwatchWrap.innerHTML = COLUMN_COLOR_PALETTE.map(c =>
+    `<button class="swatch${c.var === newColumnColor ? ' selected' : ''}" data-color="${c.var}" style="background:var(${c.var})" title="${c.name}"></button>`
+  ).join('');
+  addSwatchWrap.querySelectorAll('.swatch').forEach(btn => {
+    btn.addEventListener('click', () => { newColumnColor = btn.dataset.color; renderColumnsModal(); });
+  });
+}
+
+function recolorColumn(key, colorVar){
+  if(!ws().columnMeta[key]) ws().columnMeta[key] = {label: key, colorVar};
+  ws().columnMeta[key].colorVar = colorVar;
+  persist();
+  refreshEverything();
+  renderColumnsModal();
+}
+
+function renameColumn(key, newLabel){
+  newLabel = newLabel.trim();
+  if(!newLabel) { renderColumnsModal(); return; } // don't allow blanking a label — snap back
+  if(!ws().columnMeta[key]) ws().columnMeta[key] = {label: newLabel, colorVar: '--archived'};
+  ws().columnMeta[key].label = newLabel;
+  persist();
+  refreshEverything();
+}
+
+function moveColumn(key, dir){
+  const order = ws().columnOrder;
+  const idx = order.indexOf(key);
+  const swapIdx = idx + dir;
+  if(swapIdx < 0 || swapIdx >= order.length) return;
+  [order[idx], order[swapIdx]] = [order[swapIdx], order[idx]];
+  persist();
+  refreshEverything();
+  renderColumnsModal();
+}
+
+function deleteColumn(key){
+  const order = ws().columnOrder;
+  if(order.length <= 1) return; // guarded in UI too, but never allow the last column to go
+  const idx = order.indexOf(key);
+  order.splice(idx, 1);
+  const fallback = order[0];
+  const w = ws();
+  Object.keys(w.cardColumns).forEach(k => {
+    if(w.cardColumns[k] === key) w.cardColumns[k] = fallback;
+  });
+  delete w.columnMeta[key];
+  if(w.collapsedCols) delete w.collapsedCols[key];
+  if(currentFilter === key) currentFilter = fallback;
+  confirmDeleteColKey = null;
+  persist();
+  refreshEverything();
+  renderColumnsModal();
+}
+
+function addColumn(label, colorVar){
+  label = label.trim();
+  if(!label) return;
+  let key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'column';
+  const base = key;
+  let n = 2;
+  while(ws().columnMeta[key]){ key = base + '_' + n; n++; }
+  ws().columnMeta[key] = {label, colorVar};
+  ws().columnOrder.push(key);
+  persist();
+  refreshEverything();
+  renderColumnsModal();
+}
+
+document.getElementById('manage-columns-btn').addEventListener('click', () => {
+  confirmDeleteColKey = null;
+  newColumnColor = COLUMN_COLOR_PALETTE[0].var;
+  renderColumnsModal();
+  document.getElementById('columns-overlay').classList.add('open');
+});
+document.getElementById('columns-modal-close').addEventListener('click', () => {
+  document.getElementById('columns-overlay').classList.remove('open');
+});
+document.getElementById('add-column-btn').addEventListener('click', () => {
+  const input = document.getElementById('add-column-input');
+  addColumn(input.value, newColumnColor);
+  input.value = '';
+  newColumnColor = COLUMN_COLOR_PALETTE[0].var;
+});
+document.getElementById('add-column-input').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){
+    document.getElementById('add-column-btn').click();
+  }
+});
+
 loadState();
 applyWorkspaceUI();
 refreshEverything();
