@@ -288,6 +288,18 @@
   .col-add-form{display:flex;align-items:center;gap:10px;}
   .col-add-form .col-label-input{flex:1;}
 
+  /* ---- Add Ticket by URL modal ---- */
+  .abu-field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;flex:1;min-width:0;}
+  .abu-row{display:flex;gap:14px;}
+  .abu-field-small{flex:0 0 130px;}
+  .abu-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);}
+  .abu-label .abu-hint{text-transform:none;letter-spacing:0;font-size:10.5px;color:var(--faint);opacity:.8;}
+  .abu-input{background:var(--panel-3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;width:100%;box-sizing:border-box;}
+  .abu-input:focus{outline:none;border-color:var(--accent);}
+  select.abu-input{cursor:pointer;}
+  .abu-error{background:var(--issue-dim);border:1px solid var(--issue);color:var(--issue);border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:12px;}
+  .abu-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px;}
+
   .rock-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:border-color .15s ease;}
   .rock-card:hover{border-color:var(--accent);}
   .rock-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px;}
@@ -648,6 +660,8 @@
     .col-label-input{flex-basis:100%;order:1;}
     .col-add-form{flex-wrap:wrap;}
     .col-add-form .col-label-input{flex-basis:100%;}
+    .abu-row{flex-direction:column;gap:0;}
+    .abu-field-small{flex:1;}
     .filter-btn{padding:7px 11px;font-size:11.5px;}
 
     /* kanban becomes a swipeable, one-column-at-a-time strip */
@@ -774,6 +788,7 @@
         <span class="cloud-status" id="cloud-status">—</span>
       </div>
       <button class="icon-btn linear-check-btn" id="linear-check-btn" title="Check Linear for new tickets (QA and For Dev) — they land in the ticket list below, you assign them to a board yourself">🔍 Check Linear</button>
+      <button class="icon-btn" id="add-by-url-btn" title="Add a single ticket by pasting its Linear URL">🔗＋ Add by URL</button>
     </div>
   </header>
 
@@ -944,6 +959,66 @@
             <input class="col-label-input" id="add-column-input" placeholder="Column name…">
             <button class="cloud-btn" id="add-column-btn">＋ Add</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="activity-overlay" id="add-by-url-overlay">
+    <div class="activity-panel" style="max-width:520px;">
+      <div class="activity-head">
+        <h2>Add Ticket by URL</h2>
+        <div class="activity-head-btns">
+          <button class="icon-btn" id="add-by-url-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="td-body">
+        <div class="abu-field">
+          <label class="abu-label">Linear URL</label>
+          <input class="abu-input" id="abu-url" placeholder="https://linear.app/teamspg/issue/SOS-1234/some-title">
+        </div>
+        <div class="abu-row">
+          <div class="abu-field abu-field-small">
+            <label class="abu-label">Ticket ID</label>
+            <input class="abu-input" id="abu-id" placeholder="SOS-1234">
+          </div>
+          <div class="abu-field">
+            <label class="abu-label">Group / Project</label>
+            <input class="abu-input" id="abu-group" placeholder="Ungrouped">
+          </div>
+        </div>
+        <div class="abu-field">
+          <label class="abu-label">Ticket title</label>
+          <input class="abu-input" id="abu-title" placeholder="What's the ticket actually called?">
+        </div>
+        <div class="abu-row">
+          <div class="abu-field">
+            <label class="abu-label">Category tag</label>
+            <select class="abu-input" id="abu-category">
+              <option value="">None</option>
+              <option value="bug">🐛 Bug</option>
+              <option value="feature">✨ New Feature</option>
+            </select>
+          </div>
+          <div class="abu-field">
+            <label class="abu-label">Priority tag</label>
+            <select class="abu-input" id="abu-priority">
+              <option value="">None</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">🔥 Urgent</option>
+            </select>
+          </div>
+        </div>
+        <div class="abu-field">
+          <label class="abu-label">Linear status label <span class="abu-hint">(shown in the ticket detail panel)</span></label>
+          <input class="abu-input" id="abu-status" placeholder="Manually Added">
+        </div>
+        <div class="abu-error" id="abu-error" style="display:none;"></div>
+        <div class="abu-actions">
+          <button class="icon-btn" id="abu-cancel">Cancel</button>
+          <button class="cloud-btn" id="abu-submit">＋ Add Ticket</button>
         </div>
       </div>
     </div>
@@ -3113,6 +3188,99 @@ async function checkLinearForNewTickets(){
   }, 3000);
 }
 document.getElementById('linear-check-btn').addEventListener('click', checkLinearForNewTickets);
+
+// ---- Add Ticket by URL ----
+// Parses a ticket ID (e.g. "SOS-1234") and a rough title guess out of a Linear
+// issue URL like https://linear.app/teamspg/issue/SOS-1234/some-ticket-title
+function parseLinearUrl(url){
+  const m = String(url || '').match(/issue\/([A-Za-z][A-Za-z0-9]*-\d+)(?:\/([^/?#]+))?/i);
+  if(!m) return null;
+  const id = m[1].toUpperCase();
+  let titleGuess = '';
+  if(m[2]){
+    titleGuess = decodeURIComponent(m[2]).replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+    titleGuess = titleGuess.replace(/\b\w/g, c => c.toUpperCase());
+  }
+  return {id, titleGuess};
+}
+
+function openAddByUrlModal(){
+  ['abu-url','abu-id','abu-group','abu-title','abu-status'].forEach(fid => document.getElementById(fid).value = '');
+  document.getElementById('abu-category').value = '';
+  document.getElementById('abu-priority').value = '';
+  const err = document.getElementById('abu-error');
+  err.style.display = 'none';
+  err.textContent = '';
+  document.getElementById('add-by-url-overlay').classList.add('open');
+  document.getElementById('abu-url').focus();
+}
+function closeAddByUrlModal(){
+  document.getElementById('add-by-url-overlay').classList.remove('open');
+}
+
+document.getElementById('add-by-url-btn').addEventListener('click', openAddByUrlModal);
+document.getElementById('add-by-url-close').addEventListener('click', closeAddByUrlModal);
+document.getElementById('abu-cancel').addEventListener('click', closeAddByUrlModal);
+
+document.getElementById('abu-url').addEventListener('input', (e) => {
+  const parsed = parseLinearUrl(e.target.value);
+  if(!parsed) return;
+  const idField = document.getElementById('abu-id');
+  const titleField = document.getElementById('abu-title');
+  if(!idField.value) idField.value = parsed.id;
+  if(!titleField.value && parsed.titleGuess) titleField.value = parsed.titleGuess;
+});
+
+document.getElementById('abu-submit').addEventListener('click', () => {
+  const errBox = document.getElementById('abu-error');
+  const showErr = (msg) => { errBox.textContent = msg; errBox.style.display = 'block'; };
+  errBox.style.display = 'none';
+
+  const urlVal = document.getElementById('abu-url').value.trim();
+  let idVal = document.getElementById('abu-id').value.trim().toUpperCase();
+  const titleVal = document.getElementById('abu-title').value.trim();
+  const groupVal = document.getElementById('abu-group').value.trim();
+  const statusVal = document.getElementById('abu-status').value.trim();
+  const categoryVal = document.getElementById('abu-category').value;
+  const priorityVal = document.getElementById('abu-priority').value;
+
+  if(!/^https?:\/\//i.test(urlVal)){
+    showErr('Paste the full Linear URL for this ticket (starting with https://).');
+    return;
+  }
+  if(!idVal){
+    const parsed = parseLinearUrl(urlVal);
+    if(parsed) idVal = parsed.id;
+  }
+  if(!/^[A-Za-z][A-Za-z0-9]*-\d+$/.test(idVal)){
+    showErr('Couldn\'t work out the ticket ID from that URL — fix the "Ticket ID" field by hand (e.g. SOS-1234).');
+    return;
+  }
+  if(!titleVal){
+    showErr('This ticket needs a title.');
+    return;
+  }
+  if(getAllTickets().some(t => t.id === idVal)){
+    showErr(`A ticket with ID "${idVal}" is already in the tracker.`);
+    return;
+  }
+
+  state.extraTickets.push({
+    id: idVal,
+    title: titleVal,
+    group: groupVal || 'Ungrouped',
+    linearStatus: statusVal || 'Manually Added',
+    updated: new Date().toLocaleDateString('en-US', {month:'short', day:'numeric'}),
+    sprint: 'new',
+    url: urlVal
+  });
+  if(categoryVal) state.ticketCategory[idVal] = categoryVal;
+  if(priorityVal) state.ticketPriority[idVal] = priorityVal;
+
+  persist();
+  refreshEverything();
+  closeAddByUrlModal();
+});
 
 function exportActivityLog(){
   if(!state.activity.length){
