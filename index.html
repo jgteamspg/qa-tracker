@@ -1670,6 +1670,7 @@ function saveLocalOnly(){
 }
 
 function persist(){
+  state.lastModified = Date.now();
   saveLocalOnly();
   scheduleCloudPush();
 }
@@ -3827,6 +3828,16 @@ async function pullFromCloud(){
     const data = await jsonpPull();
     const normalized = normalizeState(data);
     if(normalized){
+      const localModified = state.lastModified || 0;
+      const cloudModified = normalized.lastModified || 0;
+      if(cloudModified < localModified){
+        // The browser's copy is newer than what's in the cloud (e.g. a previous
+        // push silently failed). Never let an older cloud copy clobber newer
+        // local work — instead, re-push the local copy to fix the cloud.
+        setCloudStatus('Local is newer — re-syncing…', 'busy');
+        pushToCloud();
+        return;
+      }
       state = normalized;
       saveLocalOnly(); // just cache it locally — don't echo this straight back up
       applyWorkspaceUI();
