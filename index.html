@@ -789,6 +789,9 @@
       </div>
       <button class="icon-btn linear-check-btn" id="linear-check-btn" title="Check Linear for new tickets (QA and For Dev) — they land in the ticket list below, you assign them to a board yourself">🔍 Check Linear</button>
       <button class="icon-btn" id="add-by-url-btn" title="Add a single ticket by pasting its Linear URL">🔗＋ Add by URL</button>
+      <button class="icon-btn" id="export-backup-btn" title="Download everything (boards, tickets, columns, notes) as a backup file">💾 Export Backup</button>
+      <button class="icon-btn" id="import-backup-btn" title="Restore from a previously exported backup file">📤 Import Backup</button>
+      <input type="file" id="import-backup-input" accept="application/json" style="display:none;">
     </div>
   </header>
 
@@ -1679,9 +1682,21 @@ function saveLocalOnly(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
 }
 
+// Blocks any push to the cloud until the very first pull of this page load has
+// either landed or been retried a few times. Without this, a brand-new/empty
+// session can push its blank state up before it's even seen the real cloud
+// data — and because "just now" is always newer than any earlier save, that
+// empty push would otherwise win and wipe out everything real.
+let initialSyncDone = false;
+let pendingPushAfterSync = false;
+
 function persist(){
   state.lastModified = Date.now();
   saveLocalOnly();
+  if(!initialSyncDone){
+    pendingPushAfterSync = true;
+    return;
+  }
   scheduleCloudPush();
 }
 
@@ -3293,6 +3308,63 @@ document.getElementById('abu-submit').addEventListener('click', () => {
   closeAddByUrlModal();
 });
 
+// ---- Export / Import full backup ----
+// Independent of the cloud sync entirely — a file that lives on your own
+// computer (or wherever you save it), so you're never solely dependent on
+// the Google Sheet sync working.
+document.getElementById('export-backup-btn').addEventListener('click', () => {
+  const dataStr = JSON.stringify(state, null, 2);
+  const blob = new Blob([dataStr], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  a.href = url;
+  a.download = `qa-tracker-backup-${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('import-backup-btn').addEventListener('click', () => {
+  document.getElementById('import-backup-input').click();
+});
+
+document.getElementById('import-backup-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    let parsed;
+    try{
+      parsed = JSON.parse(evt.target.result);
+    }catch(err){
+      alert("That file isn't valid JSON — couldn't read it as a backup.");
+      e.target.value = '';
+      return;
+    }
+    const hasOldBoards = parsed && parsed.boards && parsed.boards.length;
+    const hasNewBoards = parsed && parsed.workspaces && parsed.workspaces.qa && parsed.workspaces.qa.boards && parsed.workspaces.qa.boards.length;
+    if(!hasOldBoards && !hasNewBoards){
+      alert("That doesn't look like a QA Tracker backup file.");
+      e.target.value = '';
+      return;
+    }
+    if(!confirm('This replaces everything currently in the tracker — boards, tickets, notes, everything — with the contents of this backup file. This can\'t be undone. Continue?')){
+      e.target.value = '';
+      return;
+    }
+    migrateWorkspaces(parsed); // upgrades an older-format backup the same way a cloud pull would
+    state = parsed;
+    persist();
+    applyWorkspaceUI();
+    refreshEverything();
+    alert('Backup restored.');
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
 function exportActivityLog(){
   if(!state.activity.length){
     alert('No activity to export yet.');
@@ -3832,7 +3904,16 @@ function jsonpPull(){
   return jsonpRequest('');
 }
 
-async function pullFromCloud(){
+function finishInitialSync(){
+  initialSyncDone = true;
+  if(pendingPushAfterSync){
+    pendingPushAfterSync = false;
+    scheduleCloudPush();
+  }
+}
+
+async function pullFromCloud(retriesLeft){
+  if(retriesLeft === undefined) retriesLeft = 2; // first call gets 2 retries on failure
   setCloudStatus('Syncing…', 'busy');
   try{
     const data = await jsonpPull();
@@ -3845,6 +3926,7 @@ async function pullFromCloud(){
         // push silently failed). Never let an older cloud copy clobber newer
         // local work — instead, re-push the local copy to fix the cloud.
         setCloudStatus('Local is newer — re-syncing…', 'busy');
+        finishInitialSync();
         pushToCloud();
         return;
       }
@@ -3853,12 +3935,23 @@ async function pullFromCloud(){
       applyWorkspaceUI();
       refreshEverything();
       setCloudStatus('Synced', 'ok');
+      finishInitialSync();
     } else {
       // cloud is empty (first run) — seed it with what we've got locally
+      finishInitialSync();
       pushToCloud();
     }
   }catch(err){
+    if(retriesLeft > 0){
+      // Don't give up (and don't unlock pushes) on the first hiccup — a
+      // transient network error here is exactly the moment a stray click
+      // could otherwise push an unsynced, empty state and wipe the cloud.
+      setCloudStatus('Retrying sync…', 'busy');
+      setTimeout(() => pullFromCloud(retriesLeft - 1), 1500);
+      return;
+    }
     setCloudStatus('Sync unavailable', 'err');
+    finishInitialSync();
   }
 }
 
