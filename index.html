@@ -33,6 +33,8 @@
     --question-dim: rgba(251,146,60,0.14);
     --archived:#8F97C2;
     --archived-dim: rgba(143,151,194,0.14);
+    --cat-cyan:#22D3EE;
+    --cat-cyan-dim: rgba(34,211,238,0.10);
   }
   /* DEV tracker gets its own easy-on-the-eyes violet theme instead of QA's navy/cyan,
      so the two trackers are visually distinct at a glance. */
@@ -511,6 +513,9 @@
   .card.priority-high{border-left:3px solid var(--queue);}
   .card.priority-medium{border-left:3px solid var(--testing);}
   .card.priority-low{border-left:3px solid var(--faint);}
+  .card.cat-bug{border-top:3px solid var(--question);background:linear-gradient(180deg, var(--question-dim), transparent 45%);}
+  .card.cat-failed_qa{border-top:3px solid var(--issue);background:linear-gradient(180deg, var(--issue-dim), transparent 45%);}
+  .card.cat-feature{border-top:3px solid var(--cat-cyan);background:linear-gradient(180deg, var(--cat-cyan-dim), transparent 45%);}
   .urgent-badge{
     display:inline-flex;align-self:flex-start;background:var(--issue-dim);color:var(--issue);
     font-size:10px;font-weight:700;letter-spacing:.02em;padding:2px 7px;border-radius:5px;margin-bottom:5px;
@@ -893,6 +898,7 @@
             <select id="td-category-select">
               <option value="">None</option>
               <option value="bug">🐛 Bug</option>
+              <option value="failed_qa">❌ Failed QA</option>
               <option value="feature">✨ New Feature</option>
             </select>
           </div>
@@ -1000,6 +1006,7 @@
             <select class="abu-input" id="abu-category">
               <option value="">None</option>
               <option value="bug">🐛 Bug</option>
+              <option value="failed_qa">❌ Failed QA</option>
               <option value="feature">✨ New Feature</option>
             </select>
           </div>
@@ -1559,7 +1566,7 @@ function defaultState(){
     ticketNotes: {}, // ticketId -> [{id, text, timestamp}]
     ticketPriority: {}, // ticketId -> 'urgent'|'high'|'medium'|'low'
     ticketStatusHistory: {}, // ticketId -> [{id, boardId, boardName, status, timestamp}]
-    ticketCategory: {}, // ticketId -> 'bug'|'feature'
+    ticketCategory: {}, // ticketId -> 'bug'|'failed_qa'|'feature'
     rockQuarters: [{id: 'q3-2026', label: 'Q3 2026', range: 'Jul 1 – Sep 30, 2026', archived: false}],
     activeRockQuarterId: 'q3-2026',
     rockGoals: [
@@ -3447,11 +3454,12 @@ function renderKanban(){
         ${items.length ? items.map(t => {
           const pr = state.ticketPriority[t.id] || '';
           const cat = state.ticketCategory[t.id] || '';
-          const catIcon = cat === 'bug' ? '🐛' : cat === 'feature' ? '✨' : '';
+          const catIcon = cat === 'bug' ? '🐛' : cat === 'failed_qa' ? '❌' : cat === 'feature' ? '✨' : '';
+          const catLabel = cat === 'bug' ? 'Bug' : cat === 'failed_qa' ? 'Failed QA' : cat === 'feature' ? 'New Feature' : '';
           return `
-          <div class="card${pr ? ' priority-' + pr : ''}" draggable="true" data-id="${t.id}">
+          <div class="card${pr ? ' priority-' + pr : ''}${cat ? ' cat-' + cat : ''}" draggable="true" data-id="${t.id}">
             <div class="top-row">
-              <a class="tid" href="${t.url}" target="_blank" rel="noopener">${catIcon ? `<span title="${cat === 'bug' ? 'Bug' : 'New Feature'}">${catIcon}</span> ` : ''}${t.id}</a>
+              <a class="tid" href="${t.url}" target="_blank" rel="noopener">${catIcon ? `<span title="${catLabel}">${catIcon}</span> ` : ''}${t.id}</a>
               <span class="lstatus">${t.linearStatus}</span>
             </div>
             ${pr === 'urgent' ? '<span class="urgent-badge">🔥 URGENT</span>' : ''}
