@@ -303,6 +303,11 @@
   .abu-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px;}
 
   .rock-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:border-color .15s ease;}
+  /* An archived goal stays legible but clearly steps back, so a quarter full
+     of finished work does not compete with what is live. */
+  .rock-card.archived{opacity:.55;border-style:dashed;}
+  .icon-btn.active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent);}
+  .rock-archived-tag{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:5px;background:var(--archived-dim);color:var(--archived);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;vertical-align:middle;}
   .rock-card:hover{border-color:var(--accent);}
   .rock-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px;}
   .rock-title-link{color:var(--accent);font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13.5px;text-decoration:underline;line-height:1.3;}
@@ -955,6 +960,7 @@
             <button class="icon-btn" id="rock-quarter-delete" title="Archive this quarter">🗑</button>
           </div>
           <button class="icon-btn" id="rock-add" title="Add a goal">＋ Add goal</button>
+          <button class="icon-btn" id="rock-archived-toggle" title="Show or hide archived goals">📦 Archived</button>
           <button class="icon-btn" id="rocks-close" title="Close">✕</button>
         </div>
       </div>
@@ -2368,7 +2374,17 @@ document.getElementById('td-overlay').addEventListener('click', (e) => {
 // ---- rocks / goals ----
 function activeRockQuarters(){ return state.rockQuarters.filter(q => !q.archived); }
 function getRockQuarter(id){ return state.rockQuarters.find(q => q.id === id); }
-function goalsForActiveQuarter(){ return state.rockGoals.filter(g => g.quarterId === state.activeRockQuarterId); }
+// Archived goals are hidden by default so an old quarter's finished work
+// does not crowd what is live. They are never deleted, only set aside, and
+// the Archived button in the header brings them back into view.
+let showArchivedRocks = false;
+function goalsForActiveQuarter(){
+  return state.rockGoals.filter(g =>
+    g.quarterId === state.activeRockQuarterId && (showArchivedRocks || !g.archived));
+}
+function archivedGoalCount(){
+  return state.rockGoals.filter(g => g.quarterId === state.activeRockQuarterId && g.archived).length;
+}
 
 function rockProgress(goal){
   if(!goal.checklist.length) return 0;
@@ -2446,6 +2462,11 @@ document.getElementById('rock-quarter-delete').addEventListener('click', () => {
   renderRocksGrid();
 });
 
+document.getElementById('rock-archived-toggle').addEventListener('click', () => {
+  showArchivedRocks = !showArchivedRocks;
+  renderRocksGrid();  // view-only, nothing to persist
+});
+
 document.getElementById('rock-add').addEventListener('click', () => {
   const id = 'rock' + Date.now();
   state.rockGoals.push({
@@ -2461,20 +2482,31 @@ document.getElementById('rock-add').addEventListener('click', () => {
 function renderRocksGrid(){
   const grid = document.getElementById('rocks-grid');
   const goals = goalsForActiveQuarter();
+  const hiddenCount = archivedGoalCount();
+  const toggleBtn = document.getElementById('rock-archived-toggle');
+  if(toggleBtn){
+    toggleBtn.textContent = showArchivedRocks
+      ? '📦 Hide archived'
+      : (hiddenCount ? `📦 Archived (${hiddenCount})` : '📦 Archived');
+    toggleBtn.classList.toggle('active', showArchivedRocks);
+  }
   if(!goals.length){
-    grid.innerHTML = '<div class="rock-empty-hint">No goals yet for this quarter — click "＋ Add goal" to create one.</div>';
+    grid.innerHTML = hiddenCount && !showArchivedRocks
+      ? `<div class="rock-empty-hint">Every goal in this quarter is archived. Press 📦 Archived (${hiddenCount}) to see them.</div>`
+      : '<div class="rock-empty-hint">No goals yet for this quarter — click "＋ Add goal" to create one.</div>';
     return;
   }
   grid.innerHTML = goals.map(g => {
     const pct = rockProgress(g);
     const overdue = g.dueDate && new Date(g.dueDate + 'T23:59:59') < new Date();
-    return `<div class="rock-card" data-id="${g.id}">
+    return `<div class="rock-card${g.archived ? ' archived' : ''}" data-id="${g.id}">
       <div class="rock-card-head">
-        <a class="rock-title-link" data-id="${g.id}" href="${g.url || '#'}" target="_blank" rel="noopener">${escapeAttr(g.title) || 'Untitled goal'}</a>
+        <a class="rock-title-link" data-id="${g.id}" href="${g.url || '#'}" target="_blank" rel="noopener">${escapeAttr(g.title) || 'Untitled goal'}</a>${g.archived ? '<span class="rock-archived-tag">Archived</span>' : ''}
         <div class="row-menu-wrap">
           <button class="row-menu-btn" data-id="${g.id}" title="More options">⋮</button>
           <div class="row-menu" data-id="${g.id}">
             <button class="row-menu-item" data-rock-duplicate data-id="${g.id}">Duplicate</button>
+            <button class="row-menu-item" data-rock-archive data-id="${g.id}">${g.archived ? 'Unarchive' : 'Archive'} this goal</button>
             <button class="row-menu-item" data-rock-delete data-id="${g.id}">Delete</button>
           </div>
         </div>
@@ -2529,6 +2561,17 @@ function renderRocksGrid(){
       copy.title = g.title + ' (copy)';
       copy.checklist.forEach(c => { c.id = 'c' + Math.random().toString(36).slice(2, 8); });
       state.rockGoals.push(copy);
+      persist();
+      renderRocksGrid();
+    });
+  });
+
+  grid.querySelectorAll('[data-rock-archive]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const g = state.rockGoals.find(x => x.id === btn.dataset.id);
+      if(!g) return;
+      g.archived = !g.archived;
       persist();
       renderRocksGrid();
     });
