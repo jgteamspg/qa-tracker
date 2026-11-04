@@ -523,9 +523,15 @@
   .card:active{cursor:grabbing;}
   .card.dragging{opacity:0.4;}
   .card .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:6px;}
+  /* The id and its warning never shrink; the status pill is the part that
+     gives way, so a long status can never squeeze the ticket number. */
+  .card .tid-group{display:flex;align-items:center;gap:5px;flex:0 0 auto;min-width:0;}
   .card a.tid{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11.5px;font-weight:600;text-decoration:none;}
   .card a.tid:hover{text-decoration:underline;}
-  .card .lstatus{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em;text-align:right;}
+  .card .dup-warn{flex:0 0 auto;font-size:11px;line-height:1;cursor:help;}
+  /* min-width:0 is what lets a flex child actually ellipsis instead of
+     refusing to shrink below its text. Hover gives the full value. */
+  .card .lstatus{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em;text-align:right;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:help;}
   .card .ctitle{
     font-size:12.5px;line-height:1.35;color:var(--text);margin-bottom:6px;
     overflow-wrap:break-word;word-break:break-word;
@@ -3438,6 +3444,23 @@ function getDuplicateTicketIds(){
 function renderKanban(){
   const board = document.getElementById('kanban');
   const onBoard = ticketsOnActiveBoard();
+
+  // Two different things put the same work on a board twice, and the cards
+  // themselves should say so rather than leaving it to the Duplicates filter
+  // underneath, which only reports the second kind.
+  //
+  //   repeated id  — one record in the page's built-in baseTickets list and
+  //                  another in your synced extraTickets. getAllTickets()
+  //                  concatenates the two, so the board draws two identical
+  //                  cards in the same column.
+  //   shared title — two different ids describing the same thing.
+  //
+  // Counted across the whole board, not per column, because same-title pairs
+  // can sit in different columns.
+  const idCounts = {};
+  onBoard.forEach(t => { idCounts[t.id] = (idCounts[t.id] || 0) + 1; });
+  const titleDupIds = getDuplicateTicketIds();
+
   board.innerHTML = orderedColumns().map(col => {
     const items = onBoard
       .filter(t => (ws().cardColumns[ws().activeBoardId + "|" + t.id] || ws().columnOrder[0]) === col.key)
@@ -3456,11 +3479,21 @@ function renderKanban(){
           const cat = state.ticketCategory[t.id] || '';
           const catIcon = cat === 'bug' ? '🐛' : cat === 'failed_qa' ? '❌' : cat === 'feature' ? '✨' : '';
           const catLabel = cat === 'bug' ? 'Bug' : cat === 'failed_qa' ? 'Failed QA' : cat === 'feature' ? 'New Feature' : '';
+          const repeatedId = idCounts[t.id] > 1;
+          const sharedTitle = titleDupIds.has(t.id);
+          const dupWarn = (repeatedId || sharedTitle)
+            ? `<span class="dup-warn" title="${escapeAttr(repeatedId
+                ? 'Duplicate card: ' + t.id + ' is on this board ' + idCounts[t.id] + ' times. The same id exists in both the page\'s built-in ticket list and your synced tickets, so it draws more than once.'
+                : 'Duplicate title: another ticket on this board has the exact same title under a different id.')}">\u26a0\ufe0f</span>`
+            : '';
           return `
           <div class="card${pr ? ' priority-' + pr : ''}${cat ? ' cat-' + cat : ''}" draggable="true" data-id="${t.id}">
             <div class="top-row">
-              <a class="tid" href="${t.url}" target="_blank" rel="noopener">${catIcon ? `<span title="${catLabel}">${catIcon}</span> ` : ''}${t.id}</a>
-              <span class="lstatus">${t.linearStatus}</span>
+              <span class="tid-group">
+                <a class="tid" href="${t.url}" target="_blank" rel="noopener">${catIcon ? `<span title="${catLabel}">${catIcon}</span> ` : ''}${t.id}</a>
+                ${dupWarn}
+              </span>
+              <span class="lstatus" title="${escapeAttr(t.linearStatus)}">${t.linearStatus}</span>
             </div>
             ${pr === 'urgent' ? '<span class="urgent-badge">🔥 URGENT</span>' : ''}
             <div class="ctitle">${t.title}</div>
