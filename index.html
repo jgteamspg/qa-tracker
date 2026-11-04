@@ -580,8 +580,13 @@
   .title-cell{color:var(--text);padding-right:14px;line-height:1.3;font-size:12.5px;}
   .title-cell .grp{display:block;color:var(--faint);font-size:10.5px;margin-top:2px;}
   .dup-tag{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:5px;background:var(--issue-dim);color:var(--issue);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;vertical-align:middle;}
-  .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;font-size:10.5px;font-weight:600;width:fit-content;}
-  .badge .dotb{width:6px;height:6px;border-radius:50%;}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;font-size:10.5px;font-weight:600;width:fit-content;max-width:100%;}
+  .badge .dotb{width:6px;height:6px;border-radius:50%;flex:0 0 auto;}
+  /* The status column is 115px, so a label like "Merged and Smoke Tested in
+     Dev1" used to wrap onto three lines and stretch the whole row. One line
+     with an ellipsis, full text on hover. min-width:0 is what actually lets
+     a flex child shrink below its own text. */
+  .badge .btext{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
   .badge.qa_staging{background:var(--queue-dim);color:var(--queue);}
   .badge.qa_staging .dotb{background:var(--queue);}
   .badge.testing{background:var(--testing-dim);color:var(--testing);}
@@ -1172,7 +1177,7 @@
     <div id="rows"></div>
   </div>
 
-  <footer>Snapshot from Linear · resynced Sep 15, 2026 — tell Claude "refresh the dashboard" for current tickets. Board data is local to this browser only.</footer>
+  <footer>Boards, tickets and notes sync to the cloud and follow you between devices. Statuses refresh when you press Check Linear. Export Backup saves a copy you can restore from.</footer>
 </div>
 
 <script>
@@ -1464,6 +1469,38 @@ function getAllTickets(){
   return baseTickets.concat(state.extraTickets || []);
 }
 
+// Ids hard-coded into the page itself. Those records cannot be edited or
+// removed from the app, which matters twice over: their status can only be
+// corrected through an override, and when one is ALSO in extraTickets the
+// board draws the same ticket twice.
+const BASE_TICKET_IDS = new Set(baseTickets.map(t => t.id));
+
+// A ticket's status comes either from its own record, frozen at the moment
+// the ticket was added, or from an override written by the last Check Linear.
+// The override wins. Without it a ticket baked into the page could never show
+// a current status, however many times you sync.
+function statusOf(t){
+  const o = state.statusOverrides && state.statusOverrides[t.id];
+  return (o && o.status) || t.linearStatus;
+}
+// True when an id exists BOTH in the page's built-in list and in your synced
+// tickets, so the board draws two cards for it. Every part of state is keyed
+// by id, so archiving, assigning and noting all hit both copies at once and
+// there is no way to act on just one. Dropping the synced record is the only
+// way out; the built-in one stays.
+function isRepeatedRecord(id){
+  return BASE_TICKET_IDS.has(id) && (state.extraTickets || []).some(x => x.id === id);
+}
+
+function statusTooltip(t){
+  const o = state.statusOverrides && state.statusOverrides[t.id];
+  if(o && o.at){
+    return statusOf(t) + ' \u2014 as of ' +
+      new Date(o.at).toLocaleDateString('en-US', {month:'short', day:'numeric'});
+  }
+  return statusOf(t) + ' \u2014 from when this ticket was added, never refreshed since';
+}
+
 const DEFAULT_QA_COLUMN_META = {
   qa_staging:{label:"QA / Staging", colorVar:"--queue"},
   testing:{label:"Testing", colorVar:"--testing"},
@@ -1683,6 +1720,7 @@ function loadState(){
     if(!state.ticketPriority) state.ticketPriority = {};
     if(!state.ticketStatusHistory) state.ticketStatusHistory = {};
     if(!state.ticketCategory) state.ticketCategory = {};
+    if(!state.statusOverrides) state.statusOverrides = {};
     if(!state.rockQuarters) state.rockQuarters = [{id: 'q3-2026', label: 'Q3 2026', range: 'Jul 1 – Sep 30, 2026', archived: false}];
     if(!state.activeRockQuarterId) state.activeRockQuarterId = state.rockQuarters[0].id;
     if(!state.rockGoals) state.rockGoals = [];
@@ -2156,7 +2194,7 @@ function openTicketDetail(id){
   document.getElementById('td-link').textContent = t.id;
   document.getElementById('td-link').href = t.url;
   document.getElementById('td-title-header').textContent = t.title;
-  document.getElementById('td-linear-status').textContent = t.linearStatus;
+  document.getElementById('td-linear-status').textContent = statusOf(t);
   document.getElementById('td-updated').textContent = t.updated;
   document.getElementById('td-group').textContent = t.group;
   document.getElementById('td-sprint').textContent = sprints[t.sprint] ? sprints[t.sprint].label : '—';
@@ -3197,10 +3235,26 @@ async function checkLinearForNewTickets(){
     if(issues && issues.error){
       throw new Error(issues.error);
     }
-    const knownIds = new Set(getAllTickets().map(t => t.id));
-    const newOnes = (issues || []).filter(iss => !knownIds.has(iss.id));
+    const known = {};
+    getAllTickets().forEach(t => { known[t.id] = t; });
+    const newOnes = (issues || []).filter(iss => !known[iss.id]);
 
-    if(newOnes.length){
+    // Refresh the tickets we already hold instead of skipping them. Before
+    // this, a status was frozen at the moment the ticket first appeared, so a
+    // board could sit there claiming "Failed QA" for something that shipped
+    // days ago. Stored as an override rather than on the record, because a
+    // ticket baked into the page source cannot be edited.
+    const now = Date.now();
+    let updatedCount = 0;   // statuses that actually changed
+    let refreshedCount = 0; // statuses confirmed, changed or not
+    (issues || []).forEach(iss => {
+      if(!known[iss.id] || !iss.linearStatus) return;
+      if(statusOf(known[iss.id]) !== iss.linearStatus) updatedCount++;
+      state.statusOverrides[iss.id] = {status: iss.linearStatus, at: now};
+      refreshedCount++;
+    });
+
+    if(newOnes.length || refreshedCount){
       newOnes.forEach(iss => {
         state.extraTickets.push({
           id: iss.id,
@@ -3214,7 +3268,7 @@ async function checkLinearForNewTickets(){
       });
       persist();
       refreshEverything();
-      btn.textContent = '✓ ' + newOnes.length + ' new';
+      btn.textContent = '✓ ' + newOnes.length + ' new, ' + updatedCount + ' updated';
     } else {
       btn.textContent = '✓ No new tickets';
     }
@@ -3325,18 +3379,22 @@ document.getElementById('abu-submit').addEventListener('click', () => {
 // Independent of the cloud sync entirely — a file that lives on your own
 // computer (or wherever you save it), so you're never solely dependent on
 // the Google Sheet sync working.
-document.getElementById('export-backup-btn').addEventListener('click', () => {
+function downloadStateBackup(prefix){
   const dataStr = JSON.stringify(state, null, 2);
   const blob = new Blob([dataStr], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const dateStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   a.href = url;
-  a.download = `qa-tracker-backup-${dateStr}.json`;
+  a.download = `${prefix || 'qa-tracker-backup'}-${dateStr}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+document.getElementById('export-backup-btn').addEventListener('click', () => {
+  downloadStateBackup('qa-tracker-backup');
 });
 
 document.getElementById('import-backup-btn').addEventListener('click', () => {
@@ -3363,10 +3421,14 @@ document.getElementById('import-backup-input').addEventListener('change', (e) =>
       e.target.value = '';
       return;
     }
-    if(!confirm('This replaces everything currently in the tracker — boards, tickets, notes, everything — with the contents of this backup file. This can\'t be undone. Continue?')){
+    if(!confirm('This replaces everything currently in the tracker — boards, tickets, notes, everything — with the contents of this backup file.\n\nA copy of what you have RIGHT NOW will be downloaded first, so you can get back to it by importing that file. Continue?')){
       e.target.value = '';
       return;
     }
+    // Take a copy of the current state before destroying it. The import is
+    // irreversible, so the one moment a backup is certainly worth having is
+    // the moment before an import.
+    try{ downloadStateBackup('qa-tracker-before-import'); }catch(err2){}
     migrateWorkspaces(parsed); // upgrades an older-format backup the same way a cloud pull would
     state = parsed;
     persist();
@@ -3493,7 +3555,7 @@ function renderKanban(){
                 <a class="tid" href="${t.url}" target="_blank" rel="noopener">${catIcon ? `<span title="${catLabel}">${catIcon}</span> ` : ''}${t.id}</a>
                 ${dupWarn}
               </span>
-              <span class="lstatus" title="${escapeAttr(t.linearStatus)}">${t.linearStatus}</span>
+              <span class="lstatus" title="${escapeAttr(statusTooltip(t))}">${statusOf(t)}</span>
             </div>
             ${pr === 'urgent' ? '<span class="urgent-badge">🔥 URGENT</span>' : ''}
             <div class="ctitle">${t.title}</div>
@@ -3725,10 +3787,10 @@ function renderList(list){
     const archived = isArchived(t);
     const cVar = colKey ? colColorVar(colKey) : null;
     const statusBadge = archived
-      ? `<span class="badge archived"><span class="dotb"></span>Archived</span>`
+      ? `<span class="badge archived" title="Archived"><span class="dotb"></span><span class="btext">Archived</span></span>`
       : colKey
-        ? `<span class="badge" style="background:var(${cVar}-dim);color:var(${cVar})"><span class="dotb" style="background:var(${cVar})"></span>${escapeAttr(colLabel(colKey))}</span>`
-        : `<span class="badge unassigned"><span class="dotb"></span>Unassigned</span>`;
+        ? `<span class="badge" style="background:var(${cVar}-dim);color:var(${cVar})" title="${escapeAttr(colLabel(colKey))}"><span class="dotb" style="background:var(${cVar})"></span><span class="btext">${escapeAttr(colLabel(colKey))}</span></span>`
+        : `<span class="badge unassigned" title="Not assigned to any board"><span class="dotb"></span><span class="btext">Unassigned</span></span>`;
     const boardName = bId && getBoard(bId) ? getBoard(bId).name : null;
     const rowTitle = boardName ? `On board: ${boardName}` : 'Not assigned to any board';
     const checked = selectedTicketIds.has(t.id) ? 'checked' : '';
@@ -3745,6 +3807,7 @@ function renderList(list){
         <button class="row-menu-btn" data-id="${t.id}" title="More options">⋮</button>
         <div class="row-menu" data-id="${t.id}">
           <button class="row-menu-item" data-archive-toggle data-id="${t.id}">${archived ? 'Unarchive' : 'Archive'} this ticket</button>
+          ${isRepeatedRecord(t.id) ? `<button class="row-menu-item" data-drop-dup data-id="${t.id}">Remove the duplicate copy</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -3806,6 +3869,24 @@ function renderList(list){
       }
       persist();
       renderList(currentList());
+    });
+  });
+
+  rows.querySelectorAll('[data-drop-dup]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const copy = (state.extraTickets || []).find(x => x.id === id);
+      if(!copy) return;
+      const keepStatus = statusOf(copy);
+      if(!confirm('Remove the synced copy of ' + id + '?\n\n' +
+        'The copy built into the page stays, so the ticket does not disappear. ' +
+        'Its status is carried over as "' + keepStatus + '" so nothing is lost.\n\n' +
+        'Board placement, notes and priority are keyed by ticket id, so they are untouched.')) return;
+      if(copy.linearStatus) state.statusOverrides[id] = {status: copy.linearStatus, at: Date.now()};
+      state.extraTickets = state.extraTickets.filter(x => x.id !== id);
+      persist();
+      refreshEverything();
     });
   });
 }
@@ -3871,6 +3952,7 @@ function normalizeState(obj){
   if(!obj.ticketPriority) obj.ticketPriority = {};
   if(!obj.ticketStatusHistory) obj.ticketStatusHistory = {};
   if(!obj.ticketCategory) obj.ticketCategory = {};
+  if(!obj.statusOverrides) obj.statusOverrides = {};
   if(!obj.rockQuarters) obj.rockQuarters = [{id: 'q3-2026', label: 'Q3 2026', range: 'Jul 1 – Sep 30, 2026', archived: false}];
   if(!obj.activeRockQuarterId) obj.activeRockQuarterId = obj.rockQuarters[0].id;
   if(!obj.rockGoals) obj.rockGoals = [];
@@ -3971,6 +4053,8 @@ async function pullFromCloud(retriesLeft){
         pushToCloud();
         return;
       }
+      cloudBaseModified = normalized.lastModified || 0;
+      conflictHold = false;
       state = normalized;
       saveLocalOnly(); // just cache it locally — don't echo this straight back up
       applyWorkspaceUI();
@@ -3997,13 +4081,57 @@ async function pullFromCloud(retriesLeft){
 }
 
 let pushTimer = null;
+
+// The lastModified of the cloud copy this tab is in step with. A push replaces
+// the whole document, so it is only safe while the cloud still holds this
+// version; once it has moved on, another device has written and a blind push
+// would erase that work.
+let cloudBaseModified = 0;
+let conflictHold = false;  // set once we have detected exactly that
+let pushInFlight = false;
+
 function scheduleCloudPush(){
+  if(conflictHold){ setCloudStatus('Newer copy elsewhere — reload', 'err'); return; }
   setCloudStatus('Syncing…', 'busy');
   if(pushTimer) clearTimeout(pushTimer);
-  pushTimer = setTimeout(() => { pushToCloud(); }, 900);
+  // Clearing the handle when it fires matters: the foreground re-pull below
+  // uses it to tell "a save is queued" from "nothing pending".
+  pushTimer = setTimeout(() => { pushTimer = null; pushToCloud(); }, 900);
 }
 
 async function pushToCloud(){
+  if(conflictHold) return;
+  pushInFlight = true;
+  try{
+    await pushToCloudInner();
+  } finally {
+    pushInFlight = false;
+  }
+}
+
+async function pushToCloudInner(){
+  // Freshness check BEFORE sending anything. The usual way to lose a day's
+  // work is a tab left open on a phone: it still holds this morning's state,
+  // and one tap stamps it "now" and sends the whole stale document up.
+  //
+  // Only a POSITIVE detection blocks the push. If this check cannot run at
+  // all, we push anyway exactly as before, so this is never worse than the
+  // old behaviour.
+  try{
+    const remote = await jsonpPull();
+    const remoteModified = (remote && remote.lastModified) || 0;
+    if(cloudBaseModified && remoteModified > cloudBaseModified){
+      conflictHold = true;
+      setCloudStatus('Newer copy elsewhere — reload', 'err');
+      try{ downloadStateBackup('qa-tracker-NOT-synced'); }catch(e2){}
+      alert('Another device has saved changes since this tab loaded.\n\n' +
+        'Your change has NOT been sent, so that other work is not overwritten. ' +
+        'A copy of what is in this tab has been downloaded, so nothing here is lost either.\n\n' +
+        'Reload the page to pick up the newer copy.');
+      return;
+    }
+  }catch(e){ /* could not verify — fall through and push, as before */ }
+
   const payload = JSON.stringify(state);
   try{
     // no-cors: request goes out and Apps Script executes it, but the response is
@@ -4021,6 +4149,8 @@ async function pushToCloud(){
     }catch(e){
       setCloudStatus('Synced (unverified)', 'ok');
     }
+    // This tab and the cloud now agree on this version.
+    cloudBaseModified = state.lastModified || cloudBaseModified;
   }catch(err){
     setCloudStatus('Sync failed', 'err');
   }
@@ -4189,6 +4319,16 @@ loadState();
 applyWorkspaceUI();
 refreshEverything();
 pullFromCloud(); // silent best-effort pull on load; falls back to local if it fails
+
+// A tab left open in the background is how a stale document ends up being
+// pushed over newer work, and phones keep tabs alive for days. Pull again
+// whenever this tab comes back to the foreground, as long as nothing local
+// is queued or in flight.
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState !== 'visible') return;
+  if(!initialSyncDone || conflictHold || pushTimer || pushInFlight) return;
+  pullFromCloud(0);
+});
 </script>
 </body>
 </html>
