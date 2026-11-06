@@ -261,8 +261,13 @@
   .td-static{font-size:12.5px;color:var(--text);padding:8px 2px;}
   .td-notes-section{border-top:1px solid var(--border);padding-top:16px;}
   .td-notes-section h3{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;margin:0 0 10px;color:var(--text);}
+  /* Sprint History collapses, so its heading is the control. */
+  .td-collapse-head{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px;}
+  .td-collapse-head:hover{color:var(--accent);}
+  .td-caret{display:inline-block;transition:transform .12s ease;font-size:11px;}
+  .td-collapse-head[aria-expanded="true"] .td-caret{transform:rotate(90deg);}
   .td-notes-section .standup-textarea{height:80px;}
-  .td-comments-list{margin-top:16px;display:flex;flex-direction:column;gap:12px;max-height:260px;overflow-y:auto;}
+  .td-comments-list{margin-top:16px;display:flex;flex-direction:column;gap:12px;max-height:420px;overflow-y:auto;}
   .td-comment{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
   .td-comment-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
   .td-comment-time{font-size:10.5px;color:var(--faint);font-family:'JetBrains Mono',monospace;}
@@ -465,8 +470,19 @@
     text-decoration:none;font-size:12px;color:var(--text);
   }
   .sr-ticket-row:hover{background:var(--panel);}
-  .sr-ticket-row .tid{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11.5px;flex-shrink:0;}
-  .sr-ticket-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sr-ticket-row .tid{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11.5px;flex-shrink:0;text-decoration:none;}
+  .sr-ticket-row a.tid:hover{text-decoration:underline;}
+  .sr-ticket-title:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px;}
+  .sr-ticket-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;flex:1;}
+  .sr-ticket-title:hover{text-decoration:underline dotted;}
+  .sr-note-count{flex-shrink:0;font-size:11px;color:var(--muted);}
+  /* Notes revealed under a Sprint Results row. Indented to the title so it
+     reads as belonging to that ticket rather than to the status group. */
+  .sr-notes{margin:0 4px 6px 26px;padding:8px 10px;border-left:2px solid var(--border);
+    display:flex;flex-direction:column;gap:8px;}
+  .sr-note{font-size:12px;color:var(--text);}
+  .sr-note-time{display:block;font-size:10.5px;color:var(--muted);margin-bottom:2px;}
+  .sr-note-empty{font-size:12px;color:var(--muted);font-style:italic;}
   .sr-empty{color:var(--faint);font-size:12px;padding:20px;text-align:center;}
 
   .kanban::-webkit-scrollbar{height:8px;}
@@ -936,14 +952,19 @@
           </div>
         </div>
         <div class="td-notes-section">
-          <h3>Sprint History <span class="report-meta">status by board, over time</span></h3>
-          <div id="td-history-list"></div>
-        </div>
-        <div class="td-notes-section">
           <h3>Notes &amp; Comments</h3>
           <textarea id="td-comment-input" class="standup-textarea" placeholder="Write a note or comment…"></textarea>
           <button class="standup-save-btn" id="td-comment-add" style="margin-top:8px;">＋ Add note</button>
           <div class="td-comments-list" id="td-comments-list"></div>
+        </div>
+        <div class="td-notes-section">
+          <h3 class="td-collapse-head" id="td-history-toggle" role="button" tabindex="0"
+              aria-expanded="false" aria-controls="td-history-list"
+              title="Show or hide the status history">
+            <span class="td-caret">▸</span>Sprint History
+            <span class="report-meta">status by board, over time</span>
+          </h3>
+          <div id="td-history-list" hidden></div>
         </div>
       </div>
     </div>
@@ -1969,10 +1990,21 @@ function renderSprintResults(){
     return '<div class="sr-status-group">' +
       '<div class="sr-status-head" style="color:var(' + colColorVar(key) + ')">' + colLabel(key) +
       ' <span class="sr-status-count">' + items.length + '</span></div>' +
-      items.map(t =>
-        '<a class="sr-ticket-row" href="' + t.url + '" target="_blank" rel="noopener">' +
-        '<span class="tid">' + t.id + '</span><span class="sr-ticket-title">' + t.title + '</span></a>'
-      ).join('') +
+      items.map(t => {
+        // Only the SOS id leaves the page. The title toggles the notes below it.
+        const notes = (state.ticketNotes && state.ticketNotes[t.id]) || [];
+        const pane = notes.length
+          ? notes.map(n =>
+              '<div class="sr-note"><span class="sr-note-time">' + fmtDateTime(n.timestamp) + '</span>' +
+              escapeAttr(n.text) + '</div>').join('')
+          : '<div class="sr-note-empty">No notes on this ticket yet.</div>';
+        return '<div class="sr-ticket-row">' +
+          '<a class="tid" href="' + t.url + '" target="_blank" rel="noopener" title="Open in Linear">' + t.id + '</a>' +
+          '<span class="sr-ticket-title" data-sr-toggle="' + t.id + '" role="button" tabindex="0" title="Show notes">' + t.title + '</span>' +
+          (notes.length ? '<span class="sr-note-count">\uD83D\uDCAC ' + notes.length + '</span>' : '') +
+          '</div>' +
+          '<div class="sr-notes" data-sr-notes="' + t.id + '" hidden>' + pane + '</div>';
+      }).join('') +
       '</div>';
   }).join('');
 
@@ -1980,6 +2012,22 @@ function renderSprintResults(){
     '<div class="sr-top"><div class="sr-donut">' + donut + '</div><div class="sr-stats">' + statRows + '</div></div>' +
     '<div class="sr-lists">' + statusLists + '</div>' +
     '<div class="report-footer"><span class="report-meta">Recalculated ' + fmtDateTime(new Date().toISOString()) + '</span></div>';
+
+  // Click a title to reveal that ticket's notes, click again to hide. The id
+  // stays a plain link, so opening Linear and reading notes no longer fight
+  // over the same click.
+  body.querySelectorAll('[data-sr-toggle]').forEach(el => {
+    const toggle = () => {
+      const pane = body.querySelector('[data-sr-notes="' + el.dataset.srToggle + '"]');
+      if(!pane) return;
+      pane.hidden = !pane.hidden;
+      el.title = pane.hidden ? 'Show notes' : 'Hide notes';
+    };
+    el.addEventListener('click', toggle);
+    el.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); }
+    });
+  });
 }
 
 function copyReportAsText(){
@@ -2196,6 +2244,7 @@ function openTicketDetail(id){
   const t = findTicket(id);
   if(!t) return;
   currentDetailTicketId = id;
+  setHistoryOpen(false); // every ticket opens on its notes, not its history
 
   document.getElementById('td-link').textContent = t.id;
   document.getElementById('td-link').href = t.url;
@@ -2280,6 +2329,24 @@ function renderTicketComments(id){
     });
   });
 }
+
+// Sprint History is secondary now: collapsed until asked for.
+function setHistoryOpen(open){
+  const head = document.getElementById('td-history-toggle');
+  const list = document.getElementById('td-history-list');
+  if(!head || !list) return;
+  list.hidden = !open;
+  head.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+document.getElementById('td-history-toggle').addEventListener('click', () => {
+  setHistoryOpen(document.getElementById('td-history-list').hidden);
+});
+document.getElementById('td-history-toggle').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' || e.key === ' '){
+    e.preventDefault();
+    setHistoryOpen(document.getElementById('td-history-list').hidden);
+  }
+});
 
 document.getElementById('td-comment-add').addEventListener('click', () => {
   const input = document.getElementById('td-comment-input');
