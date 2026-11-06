@@ -473,8 +473,9 @@
   .sr-ticket-row .tid{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11.5px;flex-shrink:0;text-decoration:none;}
   .sr-ticket-row a.tid:hover{text-decoration:underline;}
   .sr-ticket-title:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px;}
-  .sr-ticket-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;flex:1;}
-  .sr-ticket-title:hover{text-decoration:underline dotted;}
+  .sr-ticket-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+  .sr-ticket-title.is-toggle{cursor:pointer;}
+  .sr-ticket-title.is-toggle:hover{text-decoration:underline dotted;}
   .sr-note-count{flex-shrink:0;font-size:11px;color:var(--muted);}
   /* Notes revealed under a Sprint Results row. Indented to the title so it
      reads as belonging to that ticket rather than to the status group. */
@@ -482,7 +483,6 @@
     display:flex;flex-direction:column;gap:8px;}
   .sr-note{font-size:12px;color:var(--text);}
   .sr-note-time{display:block;font-size:10.5px;color:var(--muted);margin-bottom:2px;}
-  .sr-note-empty{font-size:12px;color:var(--muted);font-style:italic;}
   .sr-empty{color:var(--faint);font-size:12px;padding:20px;text-align:center;}
 
   .kanban::-webkit-scrollbar{height:8px;}
@@ -1991,19 +1991,24 @@ function renderSprintResults(){
       '<div class="sr-status-head" style="color:var(' + colColorVar(key) + ')">' + colLabel(key) +
       ' <span class="sr-status-count">' + items.length + '</span></div>' +
       items.map(t => {
-        // Only the SOS id leaves the page. The title toggles the notes below it.
+        // Only the SOS id leaves the page. A title with notes toggles them
+        // below the row; a title without notes is just text, so nothing
+        // invites a click that would open an empty box.
         const notes = (state.ticketNotes && state.ticketNotes[t.id]) || [];
-        const pane = notes.length
-          ? notes.map(n =>
-              '<div class="sr-note"><span class="sr-note-time">' + fmtDateTime(n.timestamp) + '</span>' +
-              escapeAttr(n.text) + '</div>').join('')
-          : '<div class="sr-note-empty">No notes on this ticket yet.</div>';
-        return '<div class="sr-ticket-row">' +
-          '<a class="tid" href="' + t.url + '" target="_blank" rel="noopener" title="Open in Linear">' + t.id + '</a>' +
-          '<span class="sr-ticket-title" data-sr-toggle="' + t.id + '" role="button" tabindex="0" title="Show notes">' + t.title + '</span>' +
-          (notes.length ? '<span class="sr-note-count">\uD83D\uDCAC ' + notes.length + '</span>' : '') +
+        const idLink = '<a class="tid" href="' + t.url + '" target="_blank" rel="noopener" title="Open in Linear">' + t.id + '</a>';
+        if(!notes.length){
+          return '<div class="sr-ticket-row">' + idLink +
+            '<span class="sr-ticket-title">' + t.title + '</span></div>';
+        }
+        return '<div class="sr-ticket-row">' + idLink +
+          '<span class="sr-ticket-title is-toggle" data-sr-toggle="' + t.id + '" role="button" tabindex="0" title="Show notes">' + t.title + '</span>' +
+          '<span class="sr-note-count">\uD83D\uDCAC ' + notes.length + '</span>' +
           '</div>' +
-          '<div class="sr-notes" data-sr-notes="' + t.id + '" hidden>' + pane + '</div>';
+          '<div class="sr-notes" data-sr-notes="' + t.id + '" hidden>' +
+          notes.map(n =>
+            '<div class="sr-note"><span class="sr-note-time">' + fmtDateTime(n.timestamp) + '</span>' +
+            escapeAttr(n.text) + '</div>').join('') +
+          '</div>';
       }).join('') +
       '</div>';
   }).join('');
