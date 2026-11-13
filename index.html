@@ -452,7 +452,8 @@
   .kanban{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;margin-bottom:30px;}
 
   .sr-panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;margin-bottom:26px;overflow:hidden;}
-  .sr-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .sr-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px 12px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .sr-panel.is-min .sr-head{border-bottom-color:transparent;}
   .sr-head h3{font-family:'Space Grotesk',sans-serif;font-size:14px;margin:0;font-weight:600;}
   .sr-head-btns{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .sr-summary-line{padding:12px 18px;font-size:12px;color:var(--muted);}
@@ -494,17 +495,33 @@
   .sr-sec{border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden;}
   .sr-sec-qa{--accent:#4FC3F7;--panel:#0B1240;--panel-2:#0F1750;--border:#212C6E;--muted:#8F97C2;--faint:#5C639B;background:#0B1240;}
   .sr-sec-dev{--accent:#B49CFF;--panel:#20113F;--panel-2:#271748;--border:#3D2A63;--muted:#A79BC7;--faint:#786A9E;background:#20113F;}
-  .sr-sec-head{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;background:var(--panel-2);border-bottom:1px solid var(--border);}
-  .sr-sec.is-closed .sr-sec-head{border-bottom:none;}
+  .sr-sec-head{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;background:var(--panel-2);}
   .sr-sec-head:hover{filter:brightness(1.08);}
   .sr-sec-head:focus-visible,.sr-status-head.is-collapsible:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
-  .sr-arrow{display:inline-block;width:12px;color:var(--muted);font-size:11px;}
+  /* Smooth open/close: rows animate between 0fr and 1fr, so content of any
+     height slides without measuring it. */
+  .sr-collapse{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .3s ease, opacity .25s ease;}
+  .sr-collapse-inner{overflow:hidden;min-height:0;}
+  .is-closed > .sr-collapse{grid-template-rows:0fr;opacity:0;}
+  .sr-panel.is-min .sr-body-wrap{grid-template-rows:0fr;opacity:0;}
+  .sr-panel:not(.is-min) .sr-summary-wrap{grid-template-rows:0fr;opacity:0;}
+  .sr-chev{display:block;transition:transform .3s ease;}
+  .is-closed > .sr-sec-head .sr-chev,
+  .is-closed > .sr-status-head .sr-chev,
+  .sr-panel.is-min .sr-title-wrap .sr-chev{transform:rotate(-90deg);}
+  .sr-title-wrap{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;border-radius:8px;padding:2px 6px 2px 2px;}
+  .sr-title-wrap:hover .sr-chev-btn{background:var(--panel-2);color:var(--text);}
+  .sr-title-wrap:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .sr-chev-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;color:var(--muted);transition:background .15s, color .15s;}
+  .sr-arrow{display:inline-flex;color:var(--muted);}
+  .sr-sec-head:hover .sr-arrow{color:var(--text);}
+  .sr-group-rows{padding-top:8px;}
+  @media (prefers-reduced-motion: reduce){ .sr-collapse,.sr-chev{transition:none;} }
   .sr-sec-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;letter-spacing:.08em;color:var(--accent);}
   .sr-sec-board{font-size:12px;color:var(--muted);}
   .sr-sec-sum{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);}
-  .sr-sec-body{padding:18px;}
-  .sr-status-head.is-collapsible{cursor:pointer;user-select:none;}
-  .sr-status-group.is-closed .sr-status-head{margin-bottom:0;}
+  .sr-sec-body{padding:18px;border-top:1px solid var(--border);}
+  .sr-status-head.is-collapsible{cursor:pointer;user-select:none;margin-bottom:0;}
   @media(max-width:760px){ .sr-tiles{grid-template-columns:repeat(2, minmax(0, 1fr));} }
 
   .kanban::-webkit-scrollbar{height:8px;}
@@ -1181,16 +1198,18 @@
 
   <div class="sr-panel" id="sprint-results-panel" style="display:none;">
     <div class="sr-head">
-      <h3 id="sr-title">Sprint Review</h3>
+      <div class="sr-title-wrap" id="sr-toggle" role="button" tabindex="0" title="Minimize" aria-expanded="true">
+        <span class="sr-chev-btn"><svg class="sr-chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <h3 id="sr-title">Sprint Review</h3>
+      </div>
       <div class="sr-head-btns">
         <button class="icon-btn" id="sr-recalc" title="Recalculate now">🔄 Recalculate</button>
         <button class="icon-btn" id="report-image" title="Export as image">🖼 Export image</button>
         <button class="icon-btn" id="report-copy" title="Copy summary as text">📋 Copy as text</button>
-        <button class="icon-btn" id="sr-minimize" title="Minimize">▾ Minimize</button>
       </div>
     </div>
-    <div class="sr-summary-line" id="sr-summary-line" style="display:none;"></div>
-    <div id="sr-body"></div>
+    <div class="sr-collapse sr-summary-wrap"><div class="sr-collapse-inner"><div class="sr-summary-line" id="sr-summary-line"></div></div></div>
+    <div class="sr-collapse sr-body-wrap"><div class="sr-collapse-inner"><div id="sr-body"></div></div></div>
   </div>
 
   <div class="filters">
@@ -2028,18 +2047,20 @@ function srTicketRow(t){
     '</div>';
 }
 
+const SR_CHEV = '<svg class="sr-chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function srSectionHtml(d){
   const secKey = 'sec|' + d.k;
   const closed = !!srUi.closed[secKey];
-  const head = '<div class="sr-sec-head" data-sr-collapse="' + secKey + '" role="button" tabindex="0" title="' + (closed ? 'Expand' : 'Minimize') + '">' +
-    '<span class="sr-arrow">' + (closed ? '▸' : '▾') + '</span>' +
+  const head = '<div class="sr-sec-head" data-sr-collapse="' + secKey + '" role="button" tabindex="0" aria-expanded="' + !closed + '" title="' + (closed ? 'Expand' : 'Minimize') + '">' +
+    '<span class="sr-arrow">' + SR_CHEV + '</span>' +
     '<span class="sr-sec-name">' + (d.k === 'dev' ? 'DEV' : 'QA') + '</span>' +
     '<span class="sr-sec-board">' + (d.board ? escapeAttr(d.board.name) : 'no board') + '</span>' +
     '<span class="sr-sec-sum">' + d.total + ' ticket' + (d.total === 1 ? '' : 's') + '</span>' +
     '</div>';
-  const open = '<div class="sr-sec sr-sec-' + d.k + (closed ? ' is-closed' : '') + '">';
-  if(closed) return open + head + '</div>';
-  if(!d.total) return open + head + '<div class="sr-empty">No tickets on this board yet.</div></div>';
+  const wrap = inner => '<div class="sr-sec sr-sec-' + d.k + (closed ? ' is-closed' : '') + '">' + head +
+    '<div class="sr-collapse"><div class="sr-collapse-inner"><div class="sr-sec-body">' + inner + '</div></div></div></div>';
+  if(!d.total) return wrap('<div class="sr-empty">No tickets on this board yet.</div>');
 
   const order = d.w.columnOrder;
   const colorOf = key => colMetaOf(d.k, key).colorVar;
@@ -2061,17 +2082,16 @@ function srSectionHtml(d){
     const groupKey = 'grp|' + d.k + '|' + key;
     const gClosed = !!srUi.closed[groupKey];
     return '<div class="sr-status-group' + (gClosed ? ' is-closed' : '') + '">' +
-      '<div class="sr-status-head is-collapsible" data-sr-collapse="' + groupKey + '" role="button" tabindex="0" style="color:var(' + colorOf(key) + ')">' +
-      '<span class="sr-arrow">' + (gClosed ? '▸' : '▾') + '</span>' + colMetaOf(d.k, key).label +
+      '<div class="sr-status-head is-collapsible" data-sr-collapse="' + groupKey + '" role="button" tabindex="0" aria-expanded="' + !gClosed + '" style="color:var(' + colorOf(key) + ')">' +
+      '<span class="sr-arrow">' + SR_CHEV + '</span>' + colMetaOf(d.k, key).label +
       ' <span class="sr-status-count">' + items.length + '</span></div>' +
-      (gClosed ? '' : items.map(srTicketRow).join('')) +
+      '<div class="sr-collapse"><div class="sr-collapse-inner"><div class="sr-group-rows">' + items.map(srTicketRow).join('') + '</div></div></div>' +
       '</div>';
   }).join('');
 
-  return open + head + '<div class="sr-sec-body">' +
+  return wrap(
     '<div class="sr-top"><div class="sr-donut">' + donut + '</div><div class="sr-stats">' + statRows + '</div></div>' +
-    '<div class="sr-lists">' + statusLists + '</div>' +
-    '</div></div>';
+    '<div class="sr-lists">' + statusLists + '</div>');
 }
 
 // Dev columns are renamed freely ("Code Review (Fixed in Dev2)", "Merged and
@@ -2099,26 +2119,26 @@ function srSummaryText(d){
   return (d.k === 'dev' ? 'DEV' : 'QA') + ' <b>' + d.total + '</b>' + (parts.length ? ' · ' + parts.join(' · ') : '');
 }
 
+function applySprintPanelState(){
+  const panel = document.getElementById('sprint-results-panel');
+  const toggle = document.getElementById('sr-toggle');
+  panel.classList.toggle('is-min', sprintResultsMinimized);
+  toggle.title = sprintResultsMinimized ? 'Expand' : 'Minimize';
+  toggle.setAttribute('aria-expanded', String(!sprintResultsMinimized));
+}
+
 function renderSprintResults(){
   const anchor = getBoard(ws().activeBoardId);
   document.getElementById('sr-title').textContent = 'Sprint Review — ' + (anchor ? anchor.name : '');
   const qa = srData('qa');
   const dev = srData('dev');
 
-  const summaryLine = document.getElementById('sr-summary-line');
+  // Both the one-line summary and the full report are always built, so
+  // minimizing or expanding only slides between them.
+  document.getElementById('sr-summary-line').innerHTML = srSummaryText(qa) + ' &nbsp;|&nbsp; ' + srSummaryText(dev);
+  applySprintPanelState();
+
   const body = document.getElementById('sr-body');
-
-  if(sprintResultsMinimized){
-    body.style.display = 'none';
-    summaryLine.style.display = 'block';
-    summaryLine.innerHTML = srSummaryText(qa) + ' &nbsp;|&nbsp; ' + srSummaryText(dev);
-    document.getElementById('sr-minimize').textContent = '▸ Expand';
-    return;
-  }
-  summaryLine.style.display = 'none';
-  body.style.display = 'block';
-  document.getElementById('sr-minimize').textContent = '▾ Minimize';
-
   body.innerHTML =
     srTilesHtml(qa, dev) +
     srSectionHtml(qa) +
@@ -2128,9 +2148,12 @@ function renderSprintResults(){
   body.querySelectorAll('[data-sr-collapse]').forEach(el => {
     const toggle = () => {
       const key = el.dataset.srCollapse;
-      if(srUi.closed[key]) delete srUi.closed[key]; else srUi.closed[key] = true;
+      const nowClosed = !srUi.closed[key];
+      if(nowClosed) srUi.closed[key] = true; else delete srUi.closed[key];
       saveSrUi();
-      renderSprintResults();
+      el.parentElement.classList.toggle('is-closed', nowClosed);
+      el.setAttribute('aria-expanded', String(!nowClosed));
+      el.title = nowClosed ? 'Expand' : 'Minimize';
     };
     el.addEventListener('click', toggle);
     el.addEventListener('keydown', (e) => {
@@ -2185,11 +2208,15 @@ document.getElementById('sprint-results-btn').addEventListener('click', () => {
   panel.style.display = sprintResultsOpen ? 'block' : 'none';
   if(sprintResultsOpen) renderSprintResults();
 });
-document.getElementById('sr-minimize').addEventListener('click', () => {
+function toggleSprintPanel(){
   sprintResultsMinimized = !sprintResultsMinimized;
   srUi.minimized = sprintResultsMinimized;
   saveSrUi();
-  renderSprintResults();
+  applySprintPanelState();
+}
+document.getElementById('sr-toggle').addEventListener('click', toggleSprintPanel);
+document.getElementById('sr-toggle').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleSprintPanel(); }
 });
 document.getElementById('sr-recalc').addEventListener('click', () => {
   const btn = document.getElementById('sr-recalc');
