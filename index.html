@@ -484,6 +484,28 @@
   .sr-note{font-size:12px;color:var(--text);}
   .sr-note-time{display:block;font-size:10.5px;color:var(--muted);margin-bottom:2px;}
   .sr-empty{color:var(--faint);font-size:12px;padding:20px;text-align:center;}
+  /* Sprint Review: QA and DEV sections each keep their own tracker's colours,
+     whichever tracker the page is currently showing. */
+  .sr-tiles{display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:12px;margin-bottom:18px;}
+  .sr-tile{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+  .sr-tile-label{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px;}
+  .sr-tile-value{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;}
+  .sr-tile-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+  .sr-sec{border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden;}
+  .sr-sec-qa{--accent:#4FC3F7;--panel:#0B1240;--panel-2:#0F1750;--border:#212C6E;--muted:#8F97C2;--faint:#5C639B;background:#0B1240;}
+  .sr-sec-dev{--accent:#B49CFF;--panel:#20113F;--panel-2:#271748;--border:#3D2A63;--muted:#A79BC7;--faint:#786A9E;background:#20113F;}
+  .sr-sec-head{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;background:var(--panel-2);border-bottom:1px solid var(--border);}
+  .sr-sec.is-closed .sr-sec-head{border-bottom:none;}
+  .sr-sec-head:hover{filter:brightness(1.08);}
+  .sr-sec-head:focus-visible,.sr-status-head.is-collapsible:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+  .sr-arrow{display:inline-block;width:12px;color:var(--muted);font-size:11px;}
+  .sr-sec-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;letter-spacing:.08em;color:var(--accent);}
+  .sr-sec-board{font-size:12px;color:var(--muted);}
+  .sr-sec-sum{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);}
+  .sr-sec-body{padding:18px;}
+  .sr-status-head.is-collapsible{cursor:pointer;user-select:none;}
+  .sr-status-group.is-closed .sr-status-head{margin-bottom:0;}
+  @media(max-width:760px){ .sr-tiles{grid-template-columns:repeat(2, minmax(0, 1fr));} }
 
   .kanban::-webkit-scrollbar{height:8px;}
   .kanban::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px;}
@@ -1151,7 +1173,7 @@
     <h2 id="board-title">Testing board</h2>
     <div class="board-label-right">
       <button class="cloud-btn" id="manage-columns-btn">⚙ Columns</button>
-      <button class="cloud-btn" id="sprint-results-btn">📊 Sprint Results</button>
+      <button class="cloud-btn" id="sprint-results-btn">📊 Sprint Review</button>
       <div class="hint">Drag cards between columns · scroll within a column · saved in this browser</div>
     </div>
   </div>
@@ -1159,7 +1181,7 @@
 
   <div class="sr-panel" id="sprint-results-panel" style="display:none;">
     <div class="sr-head">
-      <h3 id="sr-title">Sprint Results</h3>
+      <h3 id="sr-title">Sprint Review</h3>
       <div class="sr-head-btns">
         <button class="icon-btn" id="sr-recalc" title="Recalculate now">🔄 Recalculate</button>
         <button class="icon-btn" id="report-image" title="Export as image">🖼 Export image</button>
@@ -1916,13 +1938,13 @@ function ticketStatusCounts(){
   return { counts, total: onBoard.length };
 }
 
-function buildDonutSVG(counts, total, size){
+function buildDonutSVG(counts, total, size, order, colorVarOf){
   size = size || 168;
   const r = size / 2 - 14;
   const cx = size / 2, cy = size / 2;
   const circumference = 2 * Math.PI * r;
   let offsetAcc = 0;
-  const segs = ws().columnOrder.map(key => {
+  const segs = (order || ws().columnOrder).map(key => {
     const c = counts[key] || 0;
     if(c === 0) return '';
     const frac = c / total;
@@ -1930,7 +1952,7 @@ function buildDonutSVG(counts, total, size){
     const dasharray = segLen + ' ' + (circumference - segLen);
     const dashoffset = -offsetAcc;
     offsetAcc += segLen;
-    return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(' + colColorVar(key) + ')" ' +
+    return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(' + (colorVarOf || colColorVar)(key) + ')" ' +
       'stroke-width="20" stroke-dasharray="' + dasharray + '" stroke-dashoffset="' + dashoffset + '" ' +
       'transform="rotate(-90 ' + cx + ' ' + cy + ')"/>';
   }).join('');
@@ -1943,12 +1965,145 @@ function buildDonutSVG(counts, total, size){
 }
 
 let sprintResultsOpen = false;
-let sprintResultsMinimized = false;
+
+// ---- sprint review: QA on top, DEV below ----
+// Collapsed/expanded choices are a display preference for this device only,
+// so they live in their own key and never travel through the cloud sync.
+const SR_UI_KEY = 'qa_tracker_sr_ui_v1';
+let srUi = (() => { try{ return JSON.parse(localStorage.getItem(SR_UI_KEY)) || {}; }catch(e){ return {}; } })();
+if(!srUi.closed) srUi.closed = {};
+function saveSrUi(){ try{ localStorage.setItem(SR_UI_KEY, JSON.stringify(srUi)); }catch(e){} }
+let sprintResultsMinimized = !!srUi.minimized;
+
+function wsOf(k){ return state.workspaces[k]; }
+function colMetaOf(k, key){
+  const w = wsOf(k);
+  return (w && w.columnMeta && w.columnMeta[key]) || {label: key, colorVar: '--archived'};
+}
+
+// Both trackers name their boards after the sprint ("NOV W2"), so each section
+// shows its board with the same name as the board open right now, falling back
+// to that tracker's own active board.
+function srBoardFor(k){
+  const w = wsOf(k);
+  if(!w) return null;
+  const anchor = getBoard(ws().activeBoardId);
+  if(anchor){
+    const name = anchor.name.trim().toLowerCase();
+    const same = w.boards.find(b => b.name.trim().toLowerCase() === name);
+    if(same) return same;
+  }
+  return w.boards.find(b => b.id === w.activeBoardId) || null;
+}
+
+function srData(k){
+  const w = wsOf(k);
+  const board = srBoardFor(k);
+  const tickets = board ? getAllTickets().filter(t => w.assignments[t.id] === board.id) : [];
+  const colOf = t => w.cardColumns[board.id + '|' + t.id] || w.columnOrder[0];
+  const counts = {};
+  w.columnOrder.forEach(c => counts[c] = 0);
+  tickets.forEach(t => { const c = colOf(t); counts[c] = (counts[c] || 0) + 1; });
+  return { k, w, board, tickets, colOf, counts, total: tickets.length };
+}
+
+function srTicketRow(t){
+  // Only the SOS id leaves the page. A title with notes toggles them
+  // below the row; a title without notes is just text, so nothing
+  // invites a click that would open an empty box.
+  const notes = (state.ticketNotes && state.ticketNotes[t.id]) || [];
+  const idLink = '<a class="tid" href="' + t.url + '" target="_blank" rel="noopener" title="Open in Linear">' + t.id + '</a>';
+  if(!notes.length){
+    return '<div class="sr-ticket-row">' + idLink +
+      '<span class="sr-ticket-title">' + t.title + '</span></div>';
+  }
+  return '<div class="sr-ticket-row">' + idLink +
+    '<span class="sr-ticket-title is-toggle" data-sr-toggle="' + t.id + '" role="button" tabindex="0" title="Show notes">' + t.title + '</span>' +
+    '<span class="sr-note-count">💬 ' + notes.length + '</span>' +
+    '</div>' +
+    '<div class="sr-notes" data-sr-notes="' + t.id + '" hidden>' +
+    notes.map(n =>
+      '<div class="sr-note"><span class="sr-note-time">' + fmtDateTime(n.timestamp) + '</span>' +
+      escapeAttr(n.text) + '</div>').join('') +
+    '</div>';
+}
+
+function srSectionHtml(d){
+  const secKey = 'sec|' + d.k;
+  const closed = !!srUi.closed[secKey];
+  const head = '<div class="sr-sec-head" data-sr-collapse="' + secKey + '" role="button" tabindex="0" title="' + (closed ? 'Expand' : 'Minimize') + '">' +
+    '<span class="sr-arrow">' + (closed ? '▸' : '▾') + '</span>' +
+    '<span class="sr-sec-name">' + (d.k === 'dev' ? 'DEV' : 'QA') + '</span>' +
+    '<span class="sr-sec-board">' + (d.board ? escapeAttr(d.board.name) : 'no board') + '</span>' +
+    '<span class="sr-sec-sum">' + d.total + ' ticket' + (d.total === 1 ? '' : 's') + '</span>' +
+    '</div>';
+  const open = '<div class="sr-sec sr-sec-' + d.k + (closed ? ' is-closed' : '') + '">';
+  if(closed) return open + head + '</div>';
+  if(!d.total) return open + head + '<div class="sr-empty">No tickets on this board yet.</div></div>';
+
+  const order = d.w.columnOrder;
+  const colorOf = key => colMetaOf(d.k, key).colorVar;
+  const donut = buildDonutSVG(d.counts, d.total, null, order, colorOf);
+  const statRows = order.map(key => {
+    const c = d.counts[key] || 0;
+    const pct = Math.round((c / d.total) * 100);
+    return '<div class="report-stat-row">' +
+      '<span class="rdot" style="background:var(' + colorOf(key) + ')"></span>' +
+      '<span class="rlabel">' + colMetaOf(d.k, key).label + '</span>' +
+      '<span class="bar-track"><span class="bar-fill" style="width:' + pct + '%;background:var(' + colorOf(key) + ')"></span></span>' +
+      '<span class="rcount">' + c + ' (' + pct + '%)</span>' +
+      '</div>';
+  }).join('');
+
+  const statusLists = order.map(key => {
+    const items = d.tickets.filter(t => d.colOf(t) === key);
+    if(!items.length) return '';
+    const groupKey = 'grp|' + d.k + '|' + key;
+    const gClosed = !!srUi.closed[groupKey];
+    return '<div class="sr-status-group' + (gClosed ? ' is-closed' : '') + '">' +
+      '<div class="sr-status-head is-collapsible" data-sr-collapse="' + groupKey + '" role="button" tabindex="0" style="color:var(' + colorOf(key) + ')">' +
+      '<span class="sr-arrow">' + (gClosed ? '▸' : '▾') + '</span>' + colMetaOf(d.k, key).label +
+      ' <span class="sr-status-count">' + items.length + '</span></div>' +
+      (gClosed ? '' : items.map(srTicketRow).join('')) +
+      '</div>';
+  }).join('');
+
+  return open + head + '<div class="sr-sec-body">' +
+    '<div class="sr-top"><div class="sr-donut">' + donut + '</div><div class="sr-stats">' + statRows + '</div></div>' +
+    '<div class="sr-lists">' + statusLists + '</div>' +
+    '</div></div>';
+}
+
+// Dev columns are renamed freely ("Code Review (Fixed in Dev2)", "Merged and
+// Smoke Tested in Dev1"), so "fixed" is read from the column name.
+function srDevFixedCount(d){
+  return d.w.columnOrder.reduce((sum, key) =>
+    sum + (/fixed|review|merged/i.test(colMetaOf('dev', key).label) ? (d.counts[key] || 0) : 0), 0);
+}
+
+function srTilesHtml(qa, dev){
+  const passed = qa.counts.passed || 0, failed = qa.counts.failed || 0;
+  const rated = passed + failed;
+  const tile = (label, value, sub) =>
+    '<div class="sr-tile"><div class="sr-tile-label">' + label + '</div><div class="sr-tile-value">' + value + '</div><div class="sr-tile-sub">' + sub + '</div></div>';
+  return '<div class="sr-tiles">' +
+    tile('QA tickets', qa.total, qa.board ? escapeAttr(qa.board.name) : 'no board') +
+    tile('QA pass rate', rated ? Math.round(passed / rated * 100) + '%' : '—', passed + ' passed / ' + failed + ' failed') +
+    tile('Dev tickets', dev.total, dev.board ? escapeAttr(dev.board.name) : 'no board') +
+    tile('Dev fixed / in review', srDevFixedCount(dev), 'of ' + dev.total + ' on the board') +
+    '</div>';
+}
+
+function srSummaryText(d){
+  const parts = d.w.columnOrder.filter(key => d.counts[key]).map(key => colMetaOf(d.k, key).label + ': <b>' + d.counts[key] + '</b>');
+  return (d.k === 'dev' ? 'DEV' : 'QA') + ' <b>' + d.total + '</b>' + (parts.length ? ' · ' + parts.join(' · ') : '');
+}
 
 function renderSprintResults(){
-  const { counts, total } = ticketStatusCounts();
-  const board = getBoard(ws().activeBoardId);
-  document.getElementById('sr-title').textContent = 'Sprint Results — ' + (board ? board.name : '');
+  const anchor = getBoard(ws().activeBoardId);
+  document.getElementById('sr-title').textContent = 'Sprint Review — ' + (anchor ? anchor.name : '');
+  const qa = srData('qa');
+  const dev = srData('dev');
 
   const summaryLine = document.getElementById('sr-summary-line');
   const body = document.getElementById('sr-body');
@@ -1956,9 +2111,7 @@ function renderSprintResults(){
   if(sprintResultsMinimized){
     body.style.display = 'none';
     summaryLine.style.display = 'block';
-    summaryLine.innerHTML = '<b>' + total + '</b> total · ' + ws().columnOrder.map(key =>
-      colLabel(key) + ': <b>' + (counts[key] || 0) + '</b>'
-    ).join(' · ');
+    summaryLine.innerHTML = srSummaryText(qa) + ' &nbsp;|&nbsp; ' + srSummaryText(dev);
     document.getElementById('sr-minimize').textContent = '▸ Expand';
     return;
   }
@@ -1966,64 +2119,32 @@ function renderSprintResults(){
   body.style.display = 'block';
   document.getElementById('sr-minimize').textContent = '▾ Minimize';
 
-  if(!total){
-    body.innerHTML = '<div class="sr-empty">No tickets on this board yet.</div>';
-    return;
-  }
-
-  const onBoard = ticketsOnActiveBoard();
-  const donut = buildDonutSVG(counts, total);
-  const statRows = ws().columnOrder.map(key => {
-    const c = counts[key] || 0;
-    const pct = total ? Math.round((c / total) * 100) : 0;
-    return '<div class="report-stat-row">' +
-      '<span class="rdot" style="background:var(' + colColorVar(key) + ')"></span>' +
-      '<span class="rlabel">' + colLabel(key) + '</span>' +
-      '<span class="bar-track"><span class="bar-fill" style="width:' + pct + '%;background:var(' + colColorVar(key) + ')"></span></span>' +
-      '<span class="rcount">' + c + ' (' + pct + '%)</span>' +
-      '</div>';
-  }).join('');
-
-  const statusLists = ws().columnOrder.map(key => {
-    const items = onBoard.filter(t => (ws().cardColumns[ws().activeBoardId + "|" + t.id] || ws().columnOrder[0]) === key);
-    if(!items.length) return '';
-    return '<div class="sr-status-group">' +
-      '<div class="sr-status-head" style="color:var(' + colColorVar(key) + ')">' + colLabel(key) +
-      ' <span class="sr-status-count">' + items.length + '</span></div>' +
-      items.map(t => {
-        // Only the SOS id leaves the page. A title with notes toggles them
-        // below the row; a title without notes is just text, so nothing
-        // invites a click that would open an empty box.
-        const notes = (state.ticketNotes && state.ticketNotes[t.id]) || [];
-        const idLink = '<a class="tid" href="' + t.url + '" target="_blank" rel="noopener" title="Open in Linear">' + t.id + '</a>';
-        if(!notes.length){
-          return '<div class="sr-ticket-row">' + idLink +
-            '<span class="sr-ticket-title">' + t.title + '</span></div>';
-        }
-        return '<div class="sr-ticket-row">' + idLink +
-          '<span class="sr-ticket-title is-toggle" data-sr-toggle="' + t.id + '" role="button" tabindex="0" title="Show notes">' + t.title + '</span>' +
-          '<span class="sr-note-count">\uD83D\uDCAC ' + notes.length + '</span>' +
-          '</div>' +
-          '<div class="sr-notes" data-sr-notes="' + t.id + '" hidden>' +
-          notes.map(n =>
-            '<div class="sr-note"><span class="sr-note-time">' + fmtDateTime(n.timestamp) + '</span>' +
-            escapeAttr(n.text) + '</div>').join('') +
-          '</div>';
-      }).join('') +
-      '</div>';
-  }).join('');
-
   body.innerHTML =
-    '<div class="sr-top"><div class="sr-donut">' + donut + '</div><div class="sr-stats">' + statRows + '</div></div>' +
-    '<div class="sr-lists">' + statusLists + '</div>' +
+    srTilesHtml(qa, dev) +
+    srSectionHtml(qa) +
+    srSectionHtml(dev) +
     '<div class="report-footer"><span class="report-meta">Recalculated ' + fmtDateTime(new Date().toISOString()) + '</span></div>';
+
+  body.querySelectorAll('[data-sr-collapse]').forEach(el => {
+    const toggle = () => {
+      const key = el.dataset.srCollapse;
+      if(srUi.closed[key]) delete srUi.closed[key]; else srUi.closed[key] = true;
+      saveSrUi();
+      renderSprintResults();
+    };
+    el.addEventListener('click', toggle);
+    el.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); }
+    });
+  });
 
   // Click a title to reveal that ticket's notes, click again to hide. The id
   // stays a plain link, so opening Linear and reading notes no longer fight
   // over the same click.
   body.querySelectorAll('[data-sr-toggle]').forEach(el => {
     const toggle = () => {
-      const pane = body.querySelector('[data-sr-notes="' + el.dataset.srToggle + '"]');
+      const sec = el.closest('.sr-sec') || body;
+      const pane = sec.querySelector('[data-sr-notes="' + el.dataset.srToggle + '"]');
       if(!pane) return;
       pane.hidden = !pane.hidden;
       el.title = pane.hidden ? 'Show notes' : 'Hide notes';
@@ -2036,17 +2157,20 @@ function renderSprintResults(){
 }
 
 function copyReportAsText(){
-  const { counts, total } = ticketStatusCounts();
-  const board = getBoard(ws().activeBoardId);
-  const boardName = board ? board.name : '';
-  const onBoard = ticketsOnActiveBoard();
-  const lines = [boardName + ' — Sprint Results', 'Total: ' + total, ''];
-  ws().columnOrder.forEach(key => {
-    const items = onBoard.filter(t => (ws().cardColumns[ws().activeBoardId + "|" + t.id] || ws().columnOrder[0]) === key);
-    lines.push(colLabel(key) + ': ' + (counts[key] || 0));
-    items.forEach(t => lines.push('  - ' + t.id + ': ' + t.title));
+  const anchor = getBoard(ws().activeBoardId);
+  const lines = ['Sprint Review — ' + (anchor ? anchor.name : ''), ''];
+  [srData('qa'), srData('dev')].forEach(d => {
+    const name = d.k === 'dev' ? 'DEV' : 'QA';
+    lines.push(name + (d.board ? ' (' + d.board.name + ')' : '') + ': ' + d.total + ' ticket' + (d.total === 1 ? '' : 's'));
+    d.w.columnOrder.forEach(key => {
+      const items = d.tickets.filter(t => d.colOf(t) === key);
+      if(!items.length) return;
+      lines.push('  ' + colMetaOf(d.k, key).label + ': ' + items.length);
+      items.forEach(t => lines.push('    - ' + t.id + ': ' + t.title));
+    });
+    lines.push('');
   });
-  const text = lines.join('\n');
+  const text = lines.join('\n').trim();
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.getElementById('report-copy');
     const original = btn.textContent;
@@ -2063,6 +2187,8 @@ document.getElementById('sprint-results-btn').addEventListener('click', () => {
 });
 document.getElementById('sr-minimize').addEventListener('click', () => {
   sprintResultsMinimized = !sprintResultsMinimized;
+  srUi.minimized = sprintResultsMinimized;
+  saveSrUi();
   renderSprintResults();
 });
 document.getElementById('sr-recalc').addEventListener('click', () => {
@@ -2125,7 +2251,7 @@ document.getElementById('report-image').addEventListener('click', async () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'sprint-report-' + new Date().toISOString().slice(0, 10) + '.png';
+      a.download = 'sprint-review-' + new Date().toISOString().slice(0, 10) + '.png';
       document.body.appendChild(a);
       a.click();
       a.remove();
