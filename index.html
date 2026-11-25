@@ -4197,6 +4197,70 @@ document.getElementById('th-ticket-sort').addEventListener('click', () => {
 // ---- cloud sync (Google Sheets via Apps Script) ----
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxMYM8BC4c4F6jbSNnk4DIptsfcvjkOu5jFJr1JWbQ0rGUFX6-0I9nLCJnetH5Kd9AM9Q/exec";
 
+// ---- payload compression -------------------------------------------------
+// The backend keeps this document as a single stored value, and that store has
+// a size ceiling. Once the document grew past it, writes stopped landing while
+// the UI still said Synced, so two months of work sat in one browser only.
+// Large payloads now go up gzipped inside a small envelope. The envelope keeps
+// lastModified at the top level because the freshness check reads it without
+// decoding. Anything that is not an envelope is read exactly as before, so the
+// copy already in the cloud still loads.
+const GZIP_OVER = 45000; // only compress when the plain payload is larger than this
+let notSavedWarned = false; // the loud "not saved" warning fires once per session
+
+function gzipSupported(){
+  return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+}
+
+async function gzipToBase64(str){
+  const stream = new Blob([new TextEncoder().encode(str)]).stream()
+    .pipeThrough(new CompressionStream('gzip'));
+  const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+  let bin = '';
+  for(let i = 0; i < bytes.length; i += 0x8000){
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
+}
+
+async function base64ToUngzip(b64){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return await new Response(stream).text();
+}
+
+// Turn whatever the cloud returned into a plain state object.
+async function decodeCloud(obj){
+  if(obj && typeof obj.__gzb64 === 'string'){
+    // A corrupt envelope must read as unreadable, never as empty, or the
+    // empty-cloud branch would push over a good copy.
+    try{ return JSON.parse(await base64ToUngzip(obj.__gzb64)); }
+    catch(e){ throw new Error('could not read the compressed cloud copy'); }
+  }
+  return obj;
+}
+
+async function encodeForCloud(stateObj){
+  const plain = JSON.stringify(stateObj);
+  if(plain.length <= GZIP_OVER || !gzipSupported()) return plain;
+  try{
+    return JSON.stringify({
+      __gzb64: await gzipToBase64(plain),
+      lastModified: stateObj.lastModified || 0,
+      __v: 1
+    });
+  }catch(e){ return plain; }
+}
+
+function fmtCloudTime(ms){
+  if(!ms) return 'unknown';
+  const d = new Date(ms);
+  return d.toLocaleDateString(undefined, {day:'numeric', month:'short'}) + ' ' +
+         d.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
+}
+
 function setCloudStatus(text, cls){
   const el = document.getElementById('cloud-status');
   const dot = document.getElementById('cloud-dot');
@@ -4307,7 +4371,7 @@ async function pullFromCloud(retriesLeft){
   if(retriesLeft === undefined) retriesLeft = 2; // first call gets 2 retries on failure
   setCloudStatus('Syncing…', 'busy');
   try{
-    const data = await jsonpPull();
+    const data = await decodeCloud(await jsonpPull());
     const normalized = normalizeState(data);
     if(normalized){
       const localModified = state.lastModified || 0;
@@ -4327,7 +4391,9 @@ async function pullFromCloud(retriesLeft){
       saveLocalOnly(); // just cache it locally — don't echo this straight back up
       applyWorkspaceUI();
       refreshEverything();
-      setCloudStatus('Synced', 'ok');
+      // Show WHEN the cloud copy is from. "Synced" on its own only means the
+      // read worked, which is not the same as the cloud being up to date.
+      setCloudStatus('Synced · cloud ' + fmtCloudTime(cloudBaseModified), 'ok');
       finishInitialSync();
     } else {
       // cloud is empty (first run) — seed it with what we've got locally
@@ -4400,7 +4466,8 @@ async function pushToCloudInner(){
     }
   }catch(e){ /* could not verify — fall through and push, as before */ }
 
-  const payload = JSON.stringify(state);
+  const sentModified = state.lastModified || 0;
+  const payload = await encodeForCloud(state);
   try{
     // no-cors: request goes out and Apps Script executes it, but the response is
     // "opaque" so we can't read it directly — we verify with a follow-up JSONP pull instead.
@@ -4411,14 +4478,39 @@ async function pushToCloudInner(){
       body: payload
     });
     await new Promise(r => setTimeout(r, 1200));
+
+    // Verify by reading back and comparing lastModified. The old check compared
+    // the raw JSON string, which could differ harmlessly after a round trip, so
+    // a genuine rejection and a cosmetic difference both showed as
+    // "Synced (unverified)" and were easy to read as success.
+    let landed = false;
     try{
-      const data = await jsonpPull();
-      setCloudStatus(JSON.stringify(data) === payload ? 'Synced' : 'Synced (unverified)', 'ok');
-    }catch(e){
-      setCloudStatus('Synced (unverified)', 'ok');
+      const back = await decodeCloud(await jsonpPull());
+      landed = !!back && (back.lastModified || 0) === sentModified;
+    }catch(e){ landed = false; }
+
+    if(landed){
+      // Only now do this tab and the cloud actually agree on this version.
+      cloudBaseModified = sentModified;
+      notSavedWarned = false; // it works again, so a later failure warns afresh
+      setCloudStatus('Synced · cloud ' + fmtCloudTime(sentModified), 'ok');
+    }else{
+      // Do NOT advance cloudBaseModified. Pretending the cloud holds this
+      // version is how a push failure stays invisible for weeks.
+      setCloudStatus('NOT SAVED — cloud did not accept it', 'err');
+      // Warn loudly, but only once per session. If the backend is down, every
+      // keystroke would otherwise throw an alert and download another file.
+      if(!notSavedWarned){
+        notSavedWarned = true;
+        try{ downloadStateBackup('qa-tracker-NOT-saved'); }catch(e2){}
+        alert('Your changes were sent but the cloud copy did not come back updated, ' +
+          'so they are NOT saved online.\n\n' +
+          'They are still in this browser, and a backup file has been downloaded.\n\n' +
+          'Do not clear this browser. Keep working here, and use Export Backup to ' +
+          'move to another device until this is fixed.\n\n' +
+          'The status next to the title will keep showing NOT SAVED until it works again.');
+      }
     }
-    // This tab and the cloud now agree on this version.
-    cloudBaseModified = state.lastModified || cloudBaseModified;
   }catch(err){
     setCloudStatus('Sync failed', 'err');
   }
